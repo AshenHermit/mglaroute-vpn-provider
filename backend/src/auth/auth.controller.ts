@@ -13,14 +13,29 @@ import { FirstRunService } from './first-run.service';
 import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { IsString, MinLength, MaxLength } from 'class-validator';
 
 export class SetupDto {
+  @IsString()
+  @MinLength(3)
+  @MaxLength(50)
   username: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(100)
   password: string;
 }
 
 export class LoginDto {
+  @IsString()
+  @MinLength(3)
+  @MaxLength(50)
   username: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(100)
   password: string;
 }
 
@@ -42,7 +57,6 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.CREATED)
   async setup(@Body() dto: SetupDto) {
-    console.log('setup dto:', JSON.stringify(dto));
     const isFirstRun = await this.firstRunService.isFirstRun();
     if (!isFirstRun) {
       throw new HttpException(
