@@ -19,7 +19,9 @@ async function bootstrap() {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = req.headers.origin;
+    console.log('CORS middleware:', req.method, req.path, 'origin:', origin);
     if (origin === frontendUrl) {
+      console.log('Setting CORS headers for:', origin);
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Credentials', 'true');
       res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
