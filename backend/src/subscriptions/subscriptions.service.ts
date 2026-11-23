@@ -60,9 +60,13 @@ export class SubscriptionsService {
 
   async fetch(id: string): Promise<{ ok: boolean; message: string }> {
     const subscription = await this.findOne(id);
-    // TODO: Task 3 - implement actual fetch/parse logic
-    // For now return stub response
-    return { ok: true, message: 'Fetch not yet implemented' };
+    try {
+      const resp = await (await import('axios')).default.get(subscription.url, { timeout: 10000 });
+      return { ok: true, message: `Fetched ${resp.data?.length ?? 0} bytes` };
+    } catch (err: any) {
+      await this.updateStatus(id, SubscriptionStatus.ERROR, err.message);
+      return { ok: false, message: err.message };
+    }
   }
 
   async updateStatus(id: string, status: SubscriptionStatus, lastError?: string): Promise<Subscription> {
