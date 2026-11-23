@@ -8,6 +8,9 @@ services:
       POSTGRES_DB: ${DB_NAME:-mglaroute}
       POSTGRES_USER: ${DB_USER:-mglaroute}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-mglaroute}
+    ports:
+      # Local development access to the production DB. Use with care: no IP allowlist.
+      - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,6 +27,9 @@ services:
     image: redis:7-alpine
     container_name: mglaroute-redis-prod
     command: redis-server --appendonly yes
+    ports:
+      # Local development access to the production Redis. Redis has no password.
+      - "16379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
