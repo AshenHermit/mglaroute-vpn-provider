@@ -37,6 +37,7 @@ services:
       - CORS_ORIGIN=https://admin.mglaroute.ashen-hermit.space
     command: >
       sh -c "
+      apk add --no-cache busybox >/dev/null 2>&1;
       envsubst '\${COMMON_DOMAIN} \${PANEL_SUBDOMAIN} \${BACKEND_SUBDOMAIN} \${BACKEND_HOST} \${FRONTEND_HOST} \${BACKEND_PORT} \${FRONTEND_PORT} \${CORS_ORIGIN}' < /etc/caddy/Caddyfile.template > /etc/caddy/Caddyfile &&
       caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
       "
