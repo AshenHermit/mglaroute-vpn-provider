@@ -16,9 +16,19 @@ async function bootstrap() {
   app.useGlobalGuards(new FirstRunGuard(reflector, firstRunService));
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  app.enableCors({
-    origin: frontendUrl,
-    credentials: true,
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin === frontendUrl) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Max-Age', '86400');
+    }
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    next();
   });
 
   app.useGlobalPipes(
