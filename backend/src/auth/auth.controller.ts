@@ -42,6 +42,7 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.CREATED)
   async setup(@Body() dto: SetupDto) {
+    console.log('setup dto:', JSON.stringify(dto));
     const isFirstRun = await this.firstRunService.isFirstRun();
     if (!isFirstRun) {
       throw new HttpException(
