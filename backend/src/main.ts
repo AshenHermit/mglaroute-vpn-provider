@@ -9,6 +9,7 @@ import { FirstRunService } from './auth/first-run.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api');
   app.useGlobalFilters(new EnvelopeExceptionFilter());
   const reflector = app.get(Reflector);
   const firstRunService = app.get(FirstRunService);
