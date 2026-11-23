@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScanHistory } from './scan-history.entity';
 import { AnycastScore } from './anycast-scores.entity';
+import { Subscription } from '../subscriptions/subscription.entity';
+import { Profile } from '../profiles/profile.entity';
+import { OnlineService } from '../online-services/online-service.entity';
 import { ParserService } from './parser.service';
 import { LatencyService } from './latency.service';
 import { ReachabilityService } from './reachability.service';
@@ -17,7 +20,7 @@ import { HttpModule } from '../common/http/http.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ScanHistory, AnycastScore]),
+    TypeOrmModule.forFeature([ScanHistory, AnycastScore, Subscription, Profile, OnlineService]),
     SubscriptionsModule,
     ProfilesModule,
     SettingsModule,

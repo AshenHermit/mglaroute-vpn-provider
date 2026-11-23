@@ -1,15 +1,15 @@
 # Multi-stage build for mglaroute-vpn-server
 
 # Stage 1: Backend build
-FROM node:18-alpine AS backend-builder
+FROM node:20-alpine AS backend-builder
 WORKDIR /app/backend
 COPY backend/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 COPY backend/ ./
 RUN npm run build
 
 # Stage 2: Frontend build
-FROM node:18-alpine AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
@@ -17,7 +17,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 3: Backend production
-FROM node:18-alpine AS backend-prod
+FROM node:20-alpine AS backend-prod
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=backend-builder /app/backend/dist ./backend/dist
