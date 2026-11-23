@@ -18,7 +18,8 @@
 | COMMON_DOMAIN | Root domain | ashen-hermit.space |
 | PANEL_SUBDOMAIN | Admin panel subdomain | admin.mglaroute |
 | BACKEND_SUBDOMAIN | API subdomain | api.mglaroute |
-| CADDY_PORT        | Port for external proxy to connect to Caddy | 8080 |
+| CADDY_PORT | Port for external proxy to connect to Caddy | 8080 |
+| CORS_ORIGIN | Allowed CORS origin for the Caddy proxy | https://admin.mglaroute.ashen-hermit.space |
 
 ## Production Deployment
 
@@ -78,9 +79,27 @@ Caddy handles internal routing based on Host header. No TLS at Caddy level — r
 ### Deploy Steps
 
 1. Copy `.env.example` to `.env`
-2. Set production values (especially `JWT_SECRET`)
+2. Set production values (especially `JWT_SECRET`, `FRONTEND_URL`, `CORS_ORIGIN`)
 3. Run `docker-compose -f docker-compose.prod.yml up -d`
 4. Complete first-run setup at `https://admin.mglaroute.ashen-hermit.space/setup`
+
+### CORS
+
+The admin panel (`admin.*`) and API (`api.*`) live on different subdomains, so the
+browser enforces CORS. Two layers handle it:
+
+- **NestJS** (`backend/src/main.ts`): `app.enableCors()` using `FRONTEND_URL`.
+- **Caddy** (`Caddyfile.template`): echoes `Access-Control-Allow-*` on every
+  response and answers preflight (`OPTIONS`) with `204` + CORS headers.
+
+Both must be present — either alone is not enough for credentialed cross-subdomain
+requests. Verify after deploy:
+
+```bash
+curl -sI -H "Origin: https://admin.mglaroute.ashen-hermit.space" \
+  -H "Access-Control-Request-Method: POST" \
+  https://api.mglaroute.ashen-hermit.space/api/auth/first-run
+```
 
 ### Health Check
 - Backend: `GET https://api.mglaroute.ashen-hermit.space/api/health`

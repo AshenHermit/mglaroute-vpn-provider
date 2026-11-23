@@ -8,11 +8,87 @@
 #   FRONTEND_HOST       - frontend container hostname (default: mglaroute-frontend)
 #   BACKEND_PORT        - backend port (default: 3000)
 #   FRONTEND_PORT      - frontend port (default: 5173)
+#   CORS_ORIGIN         - allowed CORS origin (default: https://admin.mglaroute.ashen-hermit.space)
 
-{$PANEL_SUBDOMAIN}.{$COMMON_DOMAIN} {
-    reverse_proxy {$FRONTEND_HOST}:{$FRONTEND_PORT}
+# CORS headers shared by both sites (frontend + backend API).
+# The browser enforces CORS when admin panel and API live on different subdomains,
+# so the proxy must echo Access-Control-Allow-* on every response and on the preflight.
+
+@cors-preflight {
+  method OPTIONS
 }
 
+# Admin panel — frontend
+{$PANEL_SUBDOMAIN}.{$COMMON_DOMAIN} {
+  log {
+    output file /var/log/caddy/access.log
+    format json
+  }
+
+  header {
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    X-XSS-Protection "1; mode=block"
+    Referrer-Policy strict-origin-when-cross-origin
+    Permissions-Policy camera=(), microphone=(), geolocation=()
+    Strict-Transport-Security max-age=31536000; includeSubDomains
+    Access-Control-Allow-Origin {$CORS_ORIGIN}
+    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
+    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
+    Access-Control-Allow-Credentials true
+    Access-Control-Max-Age 86400
+  }
+
+  respond @cors-preflight 204 {
+    Access-Control-Allow-Origin {$CORS_ORIGIN}
+    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
+    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
+    Access-Control-Allow-Credentials true
+    Access-Control-Max-Age 86400
+  }
+
+  reverse_proxy {$FRONTEND_HOST}:{$FRONTEND_PORT} {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Forwarded-Port {server_port}
+  }
+}
+
+# Backend API
 {$BACKEND_SUBDOMAIN}.{$COMMON_DOMAIN} {
-    reverse_proxy {$BACKEND_HOST}:{$BACKEND_PORT}
+  log {
+    output file /var/log/caddy/access.log
+    format json
+  }
+
+  header {
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    X-XSS-Protection "1; mode=block"
+    Referrer-Policy strict-origin-when-cross-origin
+    Strict-Transport-Security max-age=31536000; includeSubDomains
+    Access-Control-Allow-Origin {$CORS_ORIGIN}
+    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
+    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
+    Access-Control-Allow-Credentials true
+    Access-Control-Max-Age 86400
+  }
+
+  respond @cors-preflight 204 {
+    Access-Control-Allow-Origin {$CORS_ORIGIN}
+    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
+    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
+    Access-Control-Allow-Credentials true
+    Access-Control-Max-Age 86400
+  }
+
+  reverse_proxy {$BACKEND_HOST}:{$BACKEND_PORT} {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Forwarded-Port {server_port}
+  }
 }

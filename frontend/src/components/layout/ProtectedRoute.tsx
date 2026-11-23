@@ -34,25 +34,16 @@ export function ProtectedRoute({ children, requireSetup = true }: ProtectedRoute
 }
 
 export function PublicRoute({ children }: { children: ReactNode }) {
-  const { token, isFirstRun, checkFirstRun } = useAuthStore();
-  const location = useLocation();
+  const { token, checkFirstRun } = useAuthStore();
 
   useEffect(() => {
-    if (!token && isFirstRun === null) {
+    if (!token && useAuthStore.getState().isFirstRun === null) {
       checkFirstRun();
     }
-  }, [token, isFirstRun, checkFirstRun]);
+  }, [token, checkFirstRun]);
 
   if (token) {
     return <Navigate to="/" replace />;
-  }
-
-  if (isFirstRun === false) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (isFirstRun === true && location.pathname !== '/setup') {
-    return <Navigate to="/setup" replace />;
   }
 
   return <>{children}</>;

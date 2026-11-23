@@ -10,6 +10,14 @@ import { FirstRunService } from './auth/first-run.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  app.enableCors({
+    origin: [frontendUrl, /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization, X-Requested-With',
+    credentials: true,
+  });
   app.useGlobalFilters(new EnvelopeExceptionFilter());
   const reflector = app.get(Reflector);
   const firstRunService = app.get(FirstRunService);

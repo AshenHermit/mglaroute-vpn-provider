@@ -5,6 +5,10 @@
 #
 # Connect this compose to your root nginx proxy manager by pointing DNS A records
 # for *.mglaroute.ashen-hermit.space at this Caddy container's IP.
+#
+# CORS: admin.* and api.* are different subdomains, so the browser enforces CORS.
+# Caddy echoes Access-Control-Allow-* on every response and answers preflight
+# (OPTIONS) with 204 + CORS headers. NestJS also enables CORS via FRONTEND_URL.
 
 version: '3.8'
 
@@ -30,9 +34,10 @@ services:
       - FRONTEND_HOST=mglaroute-frontend
       - BACKEND_PORT=3000
       - FRONTEND_PORT=5173
+      - CORS_ORIGIN=https://admin.mglaroute.ashen-hermit.space
     command: >
       sh -c "
-      envsubst < /etc/caddy/Caddyfile.template > /etc/caddy/Caddyfile &&
+      envsubst '\${COMMON_DOMAIN} \${PANEL_SUBDOMAIN} \${BACKEND_SUBDOMAIN} \${BACKEND_HOST} \${FRONTEND_HOST} \${BACKEND_PORT} \${FRONTEND_PORT} \${CORS_ORIGIN}' < /etc/caddy/Caddyfile.template > /etc/caddy/Caddyfile &&
       caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
       "
 

@@ -2,6 +2,10 @@
 # Routes by subdomain to internal Docker services.
 # TLS: handled by external root nginx proxy manager.
 # Caddy listens on plain HTTP internally and routes by Host header.
+#
+# This file is generated from Caddyfile.template via envsubst.
+# Regenerate with:
+#   envsubst '$\{COMMON_DOMAIN} $\{PANEL_SUBDOMAIN} $\{BACKEND_SUBDOMAIN} $\{BACKEND_HOST} $\{FRONTEND_HOST} $\{BACKEND_PORT} $\{FRONTEND_PORT} $\{CORS_ORIGIN\}' < Caddyfile.template > Caddyfile
 
 {
   admin off
@@ -9,15 +13,24 @@
   auto_https off
 }
 
+# CORS preflight matcher shared by both sites.
+# The browser enforces CORS because admin panel and API live on different
+# subdomains (admin.* vs api.*), so the proxy must echo Access-Control-Allow-*
+# on every response AND on the preflight response.
+
+@cors-preflight {
+  method OPTIONS
+}
+
 # Admin panel — frontend
-{$PANEL_SUBDOMAIN}.{$COMMON_DOMAIN}:80 {
+admin.mglaroute.ashen-hermit.space:80 {
   # Log requests
   log {
     output file /var/log/caddy/access.log
     format json
   }
 
-  # Security headers
+  # Security + CORS headers
   header {
     X-Content-Type-Options nosniff
     X-Frame-Options DENY
@@ -25,6 +38,19 @@
     Referrer-Policy strict-origin-when-cross-origin
     Permissions-Policy camera=(), microphone=(), geolocation=()
     Strict-Transport-Security max-age=31536000; includeSubDomains
+    Access-Control-Allow-Origin https://admin.mglaroute.ashen-hermit.space
+    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
+    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
+    Access-Control-Allow-Credentials true
+    Access-Control-Max-Age 86400
+  }
+
+  respond @cors-preflight 204 {
+    Access-Control-Allow-Origin https://admin.mglaroute.ashen-hermit.space
+    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
+    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
+    Access-Control-Allow-Credentials true
+    Access-Control-Max-Age 86400
   }
 
   reverse_proxy frontend:80 {
@@ -37,7 +63,7 @@
 }
 
 # Backend API
-{$BACKEND_SUBDOMAIN}.{$COMMON_DOMAIN}:80 {
+api.mglaroute.ashen-hermit.space:80 {
   log {
     output file /var/log/caddy/access.log
     format json
@@ -49,6 +75,19 @@
     X-XSS-Protection "1; mode=block"
     Referrer-Policy strict-origin-when-cross-origin
     Strict-Transport-Security max-age=31536000; includeSubDomains
+    Access-Control-Allow-Origin https://admin.mglaroute.ashen-hermit.space
+    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
+    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
+    Access-Control-Allow-Credentials true
+    Access-Control-Max-Age 86400
+  }
+
+  respond @cors-preflight 204 {
+    Access-Control-Allow-Origin https://admin.mglaroute.ashen-hermit.space
+    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
+    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
+    Access-Control-Allow-Credentials true
+    Access-Control-Max-Age 86400
   }
 
   reverse_proxy backend:3000 {
