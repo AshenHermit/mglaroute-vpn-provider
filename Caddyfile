@@ -1,0 +1,36 @@
+# Caddy reverse proxy for mglaroute-vpn-server
+# Subdomains route to internal Docker services.
+# Root nginx proxy manager handles TLS termination and forwards to this Caddy.
+
+{
+  # Disable admin endpoint on Caddy (handled by root proxy)
+  admin off
+}
+
+# Admin panel — frontend
+{$PANEL_SUBDOMAIN}.{$COMMON_DOMAIN} {
+  reverse_proxy frontend:80 {
+    # Pass original Host header for SPA routing
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+}
+
+# Backend API
+{$BACKEND_SUBDOMAIN}.{$COMMON_DOMAIN} {
+  reverse_proxy backend:3000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+
+  # CORS preflight
+  respond /api/options/* 204 {
+    header Access-Control-Allow-Origin *
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Authorization, Content-Type"
+  }
+}
