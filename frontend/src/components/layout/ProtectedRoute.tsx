@@ -5,10 +5,41 @@ import { ReactNode } from 'react';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requireSetup?: boolean;
 }
 
-export function ProtectedRoute({ children, requireSetup = true }: ProtectedRouteProps) {
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { token, isFirstRun, checkFirstRun, clearAuth } = useAuthStore();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (isFirstRun === null) {
+      checkFirstRun();
+    }
+  }, [isFirstRun, checkFirstRun]);
+
+  // A token persisted from a previous install is invalid on a fresh database.
+  useEffect(() => {
+    if (isFirstRun === true && token) {
+      clearAuth();
+    }
+  }, [isFirstRun, token, clearAuth]);
+
+  if (isFirstRun === null) {
+    return null;
+  }
+
+  if (isFirstRun) {
+    return <Navigate to="/setup" replace />;
+  }
+
+  if (!token) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+export function PublicRoute({ children }: { children: ReactNode }) {
   const { token, isFirstRun, checkFirstRun } = useAuthStore();
   const location = useLocation();
 
@@ -22,36 +53,20 @@ export function ProtectedRoute({ children, requireSetup = true }: ProtectedRoute
     return null;
   }
 
-  if (!token) {
-    return <Navigate to={isFirstRun ? '/setup' : '/login'} state={{ from: location }} replace />;
-  }
-
-  if (requireSetup && isFirstRun) {
-    return <Navigate to="/setup" replace />;
-  }
-
-  return <>{children}</>;
-}
-
-export function PublicRoute({ children }: { children: ReactNode }) {
-  const { token, isFirstRun, checkFirstRun } = useAuthStore();
-  const location = useLocation();
-
-  useEffect(() => {
-    if (!token && isFirstRun === null) {
-      checkFirstRun();
+  // First run: /setup is the only reachable page. Ignore any persisted token,
+  // otherwise /setup -> / -> /setup becomes a redirect loop.
+  if (isFirstRun) {
+    if (location.pathname !== '/setup') {
+      return <Navigate to="/setup" replace />;
     }
-  }, [token, isFirstRun, checkFirstRun]);
+    return <>{children}</>;
+  }
 
   if (token) {
     return <Navigate to="/" replace />;
   }
 
-  if (isFirstRun === true && location.pathname !== '/setup') {
-    return <Navigate to="/setup" replace />;
-  }
-
-  if (isFirstRun === false && location.pathname === '/setup') {
+  if (location.pathname === '/setup') {
     return <Navigate to="/login" replace />;
   }
 
