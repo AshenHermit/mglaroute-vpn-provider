@@ -2,9 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { EnvelopeExceptionFilter } from './common/filters/envelope-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useGlobalFilters(new EnvelopeExceptionFilter());
 
   app.enableCors({
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',

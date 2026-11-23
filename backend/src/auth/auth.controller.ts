@@ -6,6 +6,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  HttpException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { FirstRunService } from './first-run.service';
@@ -43,7 +44,10 @@ export class AuthController {
   async setup(@Body() dto: SetupDto) {
     const isFirstRun = await this.firstRunService.isFirstRun();
     if (!isFirstRun) {
-      return { ok: false, code: 'SETUP_DONE', message: 'Setup already completed' };
+      throw new HttpException(
+        { code: 'SETUP_DONE', message: 'Setup already completed' },
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const user = await this.authService.createUser(dto.username, dto.password);
