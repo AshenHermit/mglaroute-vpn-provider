@@ -1,98 +1,27 @@
 # Caddy reverse proxy template for mglaroute-vpn-server
-# Environment variables are substituted by caddy-entrypoint.sh before Caddy starts.
-# Variables:
-#   COMMON_DOMAIN       - root domain (e.g. ashen-hermit.space)
-#   PANEL_SUBDOMAIN     - admin panel subdomain (e.g. admin.mglaroute)
-#   BACKEND_SUBDOMAIN   - API subdomain (e.g. api.mglaroute)
-#   BACKEND_HOST        - backend container hostname (default: mglaroute-backend)
-#   FRONTEND_HOST       - frontend container hostname (default: mglaroute-frontend)
-#   BACKEND_PORT        - backend port (default: 3000)
-#   FRONTEND_PORT      - frontend port (default: 5173)
-#   CORS_ORIGIN         - allowed CORS origin (default: https://admin.mglaroute.ashen-hermit.space)
+# Rendered at container start by awk in docker-compose (see caddy.command).
+# Placeholders are {NAME} and must match the caddy service environment.
+#
+#   COMMON_DOMAIN       root domain (ashen-hermit.space)
+#   PANEL_SUBDOMAIN     admin panel subdomain (admin.mglaroute)
+#   BACKEND_SUBDOMAIN   API subdomain (api.mglaroute)
+#   BACKEND_HOST        backend container hostname (backend)
+#   FRONTEND_HOST       frontend container hostname (frontend)
+#   BACKEND_PORT        backend port (3000)
+#   FRONTEND_PORT       frontend port (80 in prod)
+#
+# TLS is terminated by the external nginx proxy manager. Caddy listens on
+# plain HTTP and routes by Host. CORS is handled by NestJS (FRONTEND_URL),
+# not here — Caddy's respond directive cannot set Access-Control-* headers.
 
-# Admin panel — frontend
-# The browser enforces CORS because admin panel and API live on different
-# subdomains (admin.* vs api.*), so the proxy must echo Access-Control-Allow-*
-# on every response AND on the preflight response.
-
-{$PANEL_SUBDOMAIN}.{$COMMON_DOMAIN} {
-  log {
-    output file /var/log/caddy/access.log
-    format json
-  }
-
-  @cors-preflight {
-    method OPTIONS
-  }
-
-  header {
-    X-Content-Type-Options nosniff
-    X-Frame-Options DENY
-    X-XSS-Protection "1; mode=block"
-    Referrer-Policy strict-origin-when-cross-origin
-    Permissions-Policy camera=(), microphone=(), geolocation=()
-    Strict-Transport-Security max-age=31536000; includeSubDomains
-    Access-Control-Allow-Origin {$CORS_ORIGIN}
-    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
-    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
-    Access-Control-Allow-Credentials true
-    Access-Control-Max-Age 86400
-  }
-
-  respond @cors-preflight 204 {
-    Access-Control-Allow-Origin {$CORS_ORIGIN}
-    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
-    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
-    Access-Control-Allow-Credentials true
-    Access-Control-Max-Age 86400
-  }
-
-  reverse_proxy {$FRONTEND_HOST}:{$FRONTEND_PORT} {
-    header_up Host {host}
-    header_up X-Real-IP {remote_host}
-    header_up X-Forwarded-For {remote_host}
-    header_up X-Forwarded-Proto {scheme}
-    header_up X-Forwarded-Port {server_port}
-  }
+{
+	auto_https off
 }
 
-# Backend API
-{$BACKEND_SUBDOMAIN}.{$COMMON_DOMAIN} {
-  log {
-    output file /var/log/caddy/access.log
-    format json
-  }
+{PANEL_SUBDOMAIN}.{COMMON_DOMAIN} {
+	reverse_proxy {FRONTEND_HOST}:{FRONTEND_PORT}
+}
 
-  @cors-preflight {
-    method OPTIONS
-  }
-
-  header {
-    X-Content-Type-Options nosniff
-    X-Frame-Options DENY
-    X-XSS-Protection "1; mode=block"
-    Referrer-Policy strict-origin-when-cross-origin
-    Strict-Transport-Security max-age=31536000; includeSubDomains
-    Access-Control-Allow-Origin {$CORS_ORIGIN}
-    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
-    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
-    Access-Control-Allow-Credentials true
-    Access-Control-Max-Age 86400
-  }
-
-  respond @cors-preflight 204 {
-    Access-Control-Allow-Origin {$CORS_ORIGIN}
-    Access-Control-Allow-Methods GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
-    Access-Control-Allow-Headers Content-Type, Authorization, X-Requested-With
-    Access-Control-Allow-Credentials true
-    Access-Control-Max-Age 86400
-  }
-
-  reverse_proxy {$BACKEND_HOST}:{$BACKEND_PORT} {
-    header_up Host {host}
-    header_up X-Real-IP {remote_host}
-    header_up X-Forwarded-For {remote_host}
-    header_up X-Forwarded-Proto {scheme}
-    header_up X-Forwarded-Port {server_port}
-  }
+{BACKEND_SUBDOMAIN}.{COMMON_DOMAIN} {
+	reverse_proxy {BACKEND_HOST}:{BACKEND_PORT}
 }
