@@ -10,19 +10,19 @@
 #   FRONTEND_PORT      - frontend port (default: 5173)
 #   CORS_ORIGIN         - allowed CORS origin (default: https://admin.mglaroute.ashen-hermit.space)
 
-# CORS headers shared by both sites (frontend + backend API).
-# The browser enforces CORS when admin panel and API live on different subdomains,
-# so the proxy must echo Access-Control-Allow-* on every response and on the preflight.
-
-@cors-preflight {
-  method OPTIONS
-}
-
 # Admin panel — frontend
+# The browser enforces CORS because admin panel and API live on different
+# subdomains (admin.* vs api.*), so the proxy must echo Access-Control-Allow-*
+# on every response AND on the preflight response.
+
 {$PANEL_SUBDOMAIN}.{$COMMON_DOMAIN} {
   log {
     output file /var/log/caddy/access.log
     format json
+  }
+
+  @cors-preflight {
+    method OPTIONS
   }
 
   header {
@@ -61,6 +61,10 @@
   log {
     output file /var/log/caddy/access.log
     format json
+  }
+
+  @cors-preflight {
+    method OPTIONS
   }
 
   header {
