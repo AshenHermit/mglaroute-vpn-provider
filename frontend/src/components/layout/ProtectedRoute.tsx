@@ -13,37 +13,46 @@ export function ProtectedRoute({ children, requireSetup = true }: ProtectedRoute
   const location = useLocation();
 
   useEffect(() => {
-    if (token && isFirstRun === null) {
+    if (isFirstRun === null) {
       checkFirstRun();
     }
-  }, [token, isFirstRun, checkFirstRun]);
+  }, [isFirstRun, checkFirstRun]);
+
+  if (isFirstRun === null) {
+    return null;
+  }
 
   if (!token) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to={isFirstRun ? '/setup' : '/login'} state={{ from: location }} replace />;
   }
 
-  if (requireSetup && isFirstRun === true) {
+  if (requireSetup && isFirstRun) {
     return <Navigate to="/setup" replace />;
-  }
-
-  if (!requireSetup && isFirstRun === false) {
-    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
 }
 
 export function PublicRoute({ children }: { children: ReactNode }) {
-  const { token, checkFirstRun } = useAuthStore();
+  const { token, isFirstRun, checkFirstRun } = useAuthStore();
+  const location = useLocation();
 
   useEffect(() => {
-    if (!token && useAuthStore.getState().isFirstRun === null) {
+    if (!token && isFirstRun === null) {
       checkFirstRun();
     }
-  }, [token, checkFirstRun]);
+  }, [token, isFirstRun, checkFirstRun]);
 
   if (token) {
     return <Navigate to="/" replace />;
+  }
+
+  if (isFirstRun === true && location.pathname !== '/setup') {
+    return <Navigate to="/setup" replace />;
+  }
+
+  if (isFirstRun === false && location.pathname === '/setup') {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
