@@ -49,10 +49,6 @@
     X-XSS-Protection "1; mode=block"
     Referrer-Policy strict-origin-when-cross-origin
     Strict-Transport-Security max-age=31536000; includeSubDomains
-    Access-Control-Allow-Origin *
-    Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers "Authorization, Content-Type, Accept"
-    Access-Control-Max-Age 86400
   }
 
   reverse_proxy backend:3000 {
