@@ -3,9 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "description": "Local development runner for the mglaroute VPN server",
+  "packageManager": "pnpm@10.12.1",
   "scripts": {
-    "frontend:dev": "npm run dev --prefix frontend",
-    "backend:dev": "npm run start:dev --prefix backend",
+    "frontend:dev": "pnpm --filter mglaroute-vpn-server-frontend dev",
+    "backend:dev": "pnpm --filter mglaroute-vpn-server-backend start:dev",
     "dev": "node scripts/dev.mjs"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "bcrypt",
+      "esbuild"
+    ]
   }
 }

@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 const tasks = [
   { name: 'backend', args: ['run', 'backend:dev'] },
@@ -28,7 +28,7 @@ function shutdown(code = 0) {
 
 children = tasks.map(({ name, args }) => {
   console.log(`[dev] starting ${name}`);
-  const child = spawn(npm, args, { stdio: 'inherit' });
+  const child = spawn(pnpm, args, { stdio: 'inherit' });
   child.on('error', (err) => {
     console.error(`[dev] ${name} failed to start:`, err);
     shutdown(1);
