@@ -10,6 +10,8 @@ RUN npm run build
 
 # Stage 2: Frontend build
 FROM node:18-alpine AS frontend-builder
+ARG VITE_API_URL=https://api.mglaroute.ashen-hermit.space
+ENV VITE_API_URL=$VITE_API_URL
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci

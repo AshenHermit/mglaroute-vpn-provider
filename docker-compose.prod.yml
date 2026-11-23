@@ -67,9 +67,9 @@ services:
     build:
       context: .
       target: frontend-prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.mglaroute.ashen-hermit.space}
     container_name: mglaroute-frontend-prod
-    environment:
-      VITE_API_URL: https://api.mglaroute.ashen-hermit.space
     depends_on:
       backend:
         condition: service_healthy
