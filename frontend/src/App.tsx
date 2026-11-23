@@ -1,16 +1,29 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Layout } from './components/layout/Layout';
+import { ProtectedRoute, PublicRoute } from './components/layout/ProtectedRoute';
+import { SetupPage } from './pages/SetupPage';
+import { LoginPage } from './pages/LoginPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { SubscriptionsPage } from './pages/SubscriptionsPage';
+import { OnlineServicesPage } from './pages/OnlineServicesPage';
+import { ServersPage } from './pages/ServersPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { AnycastPage } from './pages/AnycastPage';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/setup" element={<div>Setup Page</div>} />
-        <Route path="/login" element={<div>Login Page</div>} />
-        <Route path="/dashboard" element={<div>Dashboard Page</div>} />
-        <Route path="/subscriptions" element={<div>Subscriptions Page</div>} />
-        <Route path="/online-services" element={<div>Online Services Page</div>} />
-        <Route path="/servers" element={<div>Servers Page</div>} />
+        <Route path="/setup" element={<PublicRoute><SetupPage /></PublicRoute>} />
+        <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+        <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          <Route index element={<DashboardPage />} />
+          <Route path="subscriptions" element={<SubscriptionsPage />} />
+          <Route path="online-services" element={<OnlineServicesPage />} />
+          <Route path="servers" element={<ServersPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="anycast" element={<AnycastPage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
