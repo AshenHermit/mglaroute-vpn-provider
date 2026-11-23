@@ -1,0 +1,46 @@
+# Caddy reverse proxy for mglaroute-vpn-server
+# Routes:
+#   admin.mglaroute.ashen-hermit.space → frontend (port 5173)
+#   api.mglaroute.ashen-hermit.space    → backend (port 3000)
+#
+# Connect this compose to your root nginx proxy manager by pointing DNS A records
+# for *.mglaroute.ashen-hermit.space at this Caddy container's IP.
+
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: mglaroute-caddy
+    restart: unless-stopped
+    networks:
+      - proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile.template:/etc/caddy/Caddyfile.template:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - COMMON_DOMAIN=ashen-hermit.space
+      - PANEL_SUBDOMAIN=admin.mglaroute
+      - BACKEND_SUBDOMAIN=api.mglaroute
+      - BACKEND_HOST=mglaroute-backend
+      - FRONTEND_HOST=mglaroute-frontend
+      - BACKEND_PORT=3000
+      - FRONTEND_PORT=5173
+    command: >
+      sh -c "
+      envsubst < /etc/caddy/Caddyfile.template > /etc/caddy/Caddyfile &&
+      caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+      "
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  proxy:
+    external: true
+    name: proxy

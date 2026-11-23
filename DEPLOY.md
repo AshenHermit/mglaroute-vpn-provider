@@ -18,6 +18,7 @@
 | COMMON_DOMAIN | Root domain | ashen-hermit.space |
 | PANEL_SUBDOMAIN | Admin panel subdomain | admin.mglaroute |
 | BACKEND_SUBDOMAIN | API subdomain | api.mglaroute |
+| CADDY_PORT        | Port for external proxy to connect to Caddy | 8080 |
 
 ## Production Deployment
 
@@ -30,11 +31,11 @@
 └──────┬──────────────────────┬───────────────────────┘
        │                      │
        ▼                      ▼
-┌──────────────┐   ┌──────────────────┐
-│  Caddy       │   │  Other services  │
-│  (port 80)   │   │  (VPN server,    │
-│              │   │   etc.)          │
-└──┬───┬───┬───┘   └──────────────────┘
+┌──────────────────┐   ┌──────────────────┐
+│  Caddy           │   │  Other services  │
+│  (port 8080)     │   │  (VPN server,    │
+│                  │   │   etc.)          │
+└──┬───────────┬────┘   └──────────────────┘
    │   │   │
    ▼   ▼   ▼
 ┌─────────┐ ┌──────────┐ ┌──────────┐
@@ -58,17 +59,17 @@
 
 ### Root Proxy Setup (Nginx Proxy Manager)
 
-Create two proxy hosts pointing to Caddy on port 80:
+Create two proxy hosts pointing to Caddy on port ${CADDY_PORT:-8080}:
 
 1. **Admin Panel**
    - Domain: `admin.mglaroute.ashen-hermit.space`
-   - Forward: `http://127.0.0.1:80` (Caddy)
+   - Forward: `http://127.0.0.1:${CADDY_PORT:-8080}` (Caddy)
    - Scheme: `http`
    - Block WebSockets: `yes`
 
 2. **API**
    - Domain: `api.mglaroute.ashen-hermit.space`
-   - Forward: `http://127.0.0.1:80` (Caddy)
+   - Forward: `http://127.0.0.1:${CADDY_PORT:-8080}` (Caddy)
    - Scheme: `http`
    - Block WebSockets: `yes`
 

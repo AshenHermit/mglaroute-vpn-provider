@@ -1,0 +1,18 @@
+# Caddy reverse proxy template for mglaroute-vpn-server
+# Environment variables are substituted by caddy-entrypoint.sh before Caddy starts.
+# Variables:
+#   COMMON_DOMAIN       - root domain (e.g. ashen-hermit.space)
+#   PANEL_SUBDOMAIN     - admin panel subdomain (e.g. admin.mglaroute)
+#   BACKEND_SUBDOMAIN   - API subdomain (e.g. api.mglaroute)
+#   BACKEND_HOST        - backend container hostname (default: mglaroute-backend)
+#   FRONTEND_HOST       - frontend container hostname (default: mglaroute-frontend)
+#   BACKEND_PORT        - backend port (default: 3000)
+#   FRONTEND_PORT      - frontend port (default: 5173)
+
+{$PANEL_SUBDOMAIN}.{$COMMON_DOMAIN} {
+    reverse_proxy {$FRONTEND_HOST}:{$FRONTEND_PORT}
+}
+
+{$BACKEND_SUBDOMAIN}.{$COMMON_DOMAIN} {
+    reverse_proxy {$BACKEND_HOST}:{$BACKEND_PORT}
+}

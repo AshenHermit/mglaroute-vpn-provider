@@ -1,30 +1,58 @@
 # Caddy reverse proxy for mglaroute-vpn-server
-# Subdomains route to internal Docker services.
-# Root nginx proxy manager handles TLS termination and forwards to this Caddy.
+# Routes by subdomain to internal Docker services.
+# TLS: handled by external root nginx proxy manager.
+# Caddy listens on plain HTTP internally and routes by Host header.
 
 {
-  # Disable admin endpoint on Caddy (handled by root proxy)
   admin off
+  # Disable automatic TLS — external proxy manager terminates TLS
+  auto_https disable
 }
 
 # Admin panel — frontend
 {$PANEL_SUBDOMAIN}.{$COMMON_DOMAIN} {
+  # Log requests
+  log {
+    output file /var/log/caddy/access.log
+    format json
+  }
+
+  # Security headers
+  header {
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    X-XSS-Protection "1; mode=block"
+    Referrer-Policy strict-origin-when-cross-origin
+    Permissions-Policy camera=(), microphone=(), geolocation=()
+    Strict-Transport-Security max-age=31536000; includeSubDomains
+  }
+
   reverse_proxy frontend:80 {
-    # Pass original Host header for SPA routing
     header_up Host {host}
     header_up X-Real-IP {remote_host}
     header_up X-Forwarded-For {remote_host}
     header_up X-Forwarded-Proto {scheme}
+    header_up X-Forwarded-Port {server_port}
   }
 }
 
 # Backend API
 {$BACKEND_SUBDOMAIN}.{$COMMON_DOMAIN} {
-  reverse_proxy backend:3000 {
-    header_up Host {host}
-    header_up X-Real-IP {remote_host}
-    header_up X-Forwarded-For {remote_host}
-    header_up X-Forwarded-Proto {scheme}
+  log {
+    output file /var/log/caddy/access.log
+    format json
+  }
+
+  header {
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    X-XSS-Protection "1; mode=block"
+    Referrer-Policy strict-origin-when-cross-origin
+    Strict-Transport-Security max-age=31536000; includeSubDomains
+    Access-Control-Allow-Origin *
+    Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers "Authorization, Content-Type, Accept"
+    Access-Control-Max-Age 86400
   }
 
   # CORS preflight
@@ -32,5 +60,13 @@
     header Access-Control-Allow-Origin *
     header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
     header Access-Control-Allow-Headers "Authorization, Content-Type"
+  }
+
+  reverse_proxy backend:3000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Forwarded-Port {server_port}
   }
 }

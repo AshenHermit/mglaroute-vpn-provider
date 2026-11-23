@@ -79,12 +79,13 @@ services:
     image: caddy:2-alpine
     container_name: mglaroute-caddy
     ports:
-      - "80:80"
-      - "443:443"
+      # External nginx proxy manager connects to this port
+      - "${CADDY_PORT:-8080}:80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+      - caddy_logs:/var/log/caddy
     environment:
       COMMON_DOMAIN: ${COMMON_DOMAIN:-ashen-hermit.space}
       PANEL_SUBDOMAIN: ${PANEL_SUBDOMAIN:-admin.mglaroute}
@@ -101,3 +102,4 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  caddy_logs:
