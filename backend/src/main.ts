@@ -6,7 +6,6 @@ import { EnvelopeExceptionFilter } from './common/filters/envelope-exception.fil
 import { FirstRunGuard } from './common/guards/first-run.guard';
 import { Reflector } from '@nestjs/core';
 import { FirstRunService } from './auth/first-run.service';
-import { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,22 +14,6 @@ async function bootstrap() {
   const reflector = app.get(Reflector);
   const firstRunService = app.get(FirstRunService);
   app.useGlobalGuards(new FirstRunGuard(reflector, firstRunService));
-
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const origin = req.headers.origin;
-    if (origin === frontendUrl) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Max-Age', '86400');
-    }
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(204);
-    }
-    next();
-  });
 
   app.useGlobalPipes(
     new ValidationPipe({
