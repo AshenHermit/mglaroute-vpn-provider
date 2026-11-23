@@ -17,6 +17,8 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
+    networks:
+      - mglaroute
 
   redis:
     image: redis:7-alpine
@@ -31,6 +33,8 @@ services:
       retries: 5
       start_period: 5s
     restart: unless-stopped
+    networks:
+      - mglaroute
 
   backend:
     build:
@@ -62,6 +66,8 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    networks:
+      - mglaroute
 
   frontend:
     build:
@@ -74,6 +80,14 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep nginx || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mglaroute
 
   caddy:
     image: caddy:2-alpine
@@ -96,6 +110,9 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - mglaroute
+      - shared-net
 
 volumes:
   postgres_data:
@@ -103,3 +120,9 @@ volumes:
   caddy_data:
   caddy_config:
   caddy_logs:
+
+networks:
+  mglaroute:
+    driver: bridge
+  shared-net:
+    external: true

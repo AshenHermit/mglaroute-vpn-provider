@@ -17,7 +17,7 @@ import { DataSource } from 'typeorm';
         password: configService.get('DB_PASSWORD', 'mglaroute'),
         database: configService.get('DB_NAME', 'mglaroute'),
         entities: [__dirname + '/../../**/*.entity{.ts,.js}'],
-        synchronize: configService.get('DB_SYNCHRONIZE', 'true') === 'true',
+        synchronize: configService.get('DB_SYNCHRONIZE', 'false') === 'true',
         logging: configService.get('DB_LOGGING', 'false') === 'true',
         ssl: configService.get('DB_SSL', 'false') === 'true',
       }),
