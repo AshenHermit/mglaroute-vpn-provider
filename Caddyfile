@@ -6,7 +6,7 @@
 {
   admin off
   # Disable automatic TLS — external proxy manager terminates TLS
-  auto_https disable_redirects
+  auto_https off
 }
 
 # Admin panel — frontend
