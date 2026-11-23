@@ -17,11 +17,13 @@ async function bootstrap() {
   app.useGlobalGuards(new FirstRunGuard(reflector, firstRunService));
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  let requestId = 0;
   app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = req.headers.origin;
-    console.log('CORS middleware:', req.method, req.path, 'origin:', origin);
+    const id = ++requestId;
+    console.log(`CORS middleware [${id}]:`, req.method, req.path, 'origin:', origin);
     if (origin === frontendUrl) {
-      console.log('Setting CORS headers for:', origin);
+      console.log(`Setting CORS headers [${id}] for:`, origin);
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Credentials', 'true');
       res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
