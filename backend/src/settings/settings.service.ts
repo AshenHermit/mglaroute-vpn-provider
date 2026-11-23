@@ -26,11 +26,11 @@ export class SettingsService implements OnModuleInit {
     }
   }
 
-  async getSettings(): Promise<ScannerSettings> {
+  async getSettings(): Promise<ScannerSettings | null> {
     return this.settingsRepository.findOne({ where: { id: 'singleton' } });
   }
 
-  async updateSettings(updates: Partial<ScannerSettings>): Promise<ScannerSettings> {
+  async updateSettings(updates: Partial<ScannerSettings>): Promise<ScannerSettings | null> {
     await this.settingsRepository.update('singleton', updates);
     return this.getSettings();
   }

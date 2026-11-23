@@ -21,7 +21,7 @@ import { DataSource } from 'typeorm';
         logging: configService.get('DB_LOGGING', 'false') === 'true',
         ssl: configService.get('DB_SSL', 'false') === 'true',
       }),
-      dataSourceFactory: async (options) => {
+      dataSourceFactory: async (options: any) => {
         const dataSource = new DataSource(options);
         return dataSource.initialize();
       },

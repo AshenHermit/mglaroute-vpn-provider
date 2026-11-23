@@ -1,6 +1,6 @@
 import { Module, Global } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { createClient, RedisClientType } from 'ioredis';
+import Redis from 'ioredis';
 
 export const REDIS_CLIENT = 'REDIS_CLIENT';
 
@@ -10,13 +10,13 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
   providers: [
     {
       provide: REDIS_CLIENT,
-      useFactory: async (configService: ConfigService): Promise<RedisClientType> => {
-        const client = createClient({
+      useFactory: async (configService: ConfigService): Promise<Redis> => {
+        const client = new Redis({
           host: configService.get('REDIS_HOST', 'localhost'),
           port: configService.get('REDIS_PORT', 6379),
           password: configService.get('REDIS_PASSWORD') || undefined,
           db: configService.get('REDIS_DB', 0),
-          retryStrategy: (times) => {
+          retryStrategy: (times: number) => {
             const delay = Math.min(times * 50, 2000);
             return delay;
           },
@@ -25,7 +25,7 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           lazyConnect: true,
         });
 
-        client.on('error', (err) => {
+        client.on('error', (err: Error) => {
           console.error('Redis connection error:', err);
         });
 
