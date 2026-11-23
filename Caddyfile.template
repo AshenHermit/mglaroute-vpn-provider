@@ -18,10 +18,12 @@
 	auto_https off
 }
 
-{PANEL_SUBDOMAIN}.{COMMON_DOMAIN} {
+# Explicit :80. With auto_https off, a bare hostname binds only the HTTPS
+# port, so nothing answers on the plain HTTP port the proxy manager uses.
+http://{PANEL_SUBDOMAIN}.{COMMON_DOMAIN}:80 {
 	reverse_proxy {FRONTEND_HOST}:{FRONTEND_PORT}
 }
 
-{BACKEND_SUBDOMAIN}.{COMMON_DOMAIN} {
+http://{BACKEND_SUBDOMAIN}.{COMMON_DOMAIN}:80 {
 	reverse_proxy {BACKEND_HOST}:{BACKEND_PORT}
 }
