@@ -15,8 +15,15 @@ async function bootstrap() {
   const firstRunService = app.get(FirstRunService);
   app.useGlobalGuards(new FirstRunGuard(reflector, firstRunService));
 
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      if (!origin || origin === frontendUrl) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   });
 
