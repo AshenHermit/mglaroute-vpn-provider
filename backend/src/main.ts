@@ -36,6 +36,16 @@ async function bootstrap() {
     next();
   });
 
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.removeHeader('Access-Control-Allow-Origin');
+    res.removeHeader('Access-Control-Allow-Credentials');
+    res.removeHeader('Access-Control-Allow-Headers');
+    res.removeHeader('Access-Control-Allow-Methods');
+    res.removeHeader('Access-Control-Max-Age');
+    res.removeHeader('X-Powered-By');
+    next();
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
