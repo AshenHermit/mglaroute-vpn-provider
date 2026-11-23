@@ -16,7 +16,7 @@ async function bootstrap() {
   app.useGlobalGuards(new FirstRunGuard(reflector, firstRunService));
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  app.use((req, res, next) => {
+  app.use((req, res, next: () => void) => {
     const origin = req.headers.origin;
     if (origin === frontendUrl) {
       res.header('Access-Control-Allow-Origin', origin);
