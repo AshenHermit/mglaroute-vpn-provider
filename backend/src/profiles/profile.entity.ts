@@ -99,6 +99,9 @@ export class Profile {
   @Column({ default: 0 })
   anycastSamples: number;
 
+  @Column({ type: 'jsonb', default: [] })
+  anycastWindow: boolean[];
+
   @Column({ default: true })
   present: boolean;
 

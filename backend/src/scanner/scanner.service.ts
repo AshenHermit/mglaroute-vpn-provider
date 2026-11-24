@@ -158,6 +158,9 @@ export class ScannerService {
     settings: any,
     timeoutMs: number,
   ): Promise<any> {
+    const fingerprint = computeServicesFingerprint(
+      onlineServices.map((service) => ({ id: service.id, testUrls: service.testUrls || [] })),
+    );
     const useTcpOnly = settings?.delayMode === 'tcp' || !this.xrayDelayService.isAvailable();
     let latency: number | null = null;
     let checkedUrls: Set<string> | null = null;
@@ -165,9 +168,6 @@ export class ScannerService {
     if (useTcpOnly) {
       latency = await this.latencyService.measureLatency(profile.address, profile.port, timeoutMs);
     } else {
-      const fingerprint = computeServicesFingerprint(
-        onlineServices.map((service) => ({ id: service.id, testUrls: service.testUrls || [] })),
-      );
       const expirationMs = Math.max(1, Number(settings?.serviceCheckExpirationSeconds ?? 3600)) * 1000;
       const checkedAt = profile.servicesCheckedAt ? new Date(profile.servicesCheckedAt).getTime() : 0;
       const due = !profile.servicesCheckedAt || profile.servicesFingerprint !== fingerprint
@@ -186,7 +186,6 @@ export class ScannerService {
         if (session.okUrls !== null) {
           profile.serviceIds = this.reachableServiceIds(onlineServices, session.okUrls);
           profile.servicesCheckedAt = new Date();
-          profile.servicesFingerprint = fingerprint;
           checkedUrls = session.okUrls;
         }
       }
@@ -194,6 +193,13 @@ export class ScannerService {
 
     const resolvedIp = await this.resolveIp(profile.address);
     const storedIds = new Set(profile.serviceIds || []);
+    const expectedCount = onlineServices.filter((service) => (service.testUrls || []).length > 0).length;
+    const reachableCount = checkedUrls !== null
+      ? this.reachableServiceIds(onlineServices, checkedUrls).length
+      : 0;
+    const observation = checkedUrls !== null
+      ? { fingerprint, reachableCount, expectedCount }
+      : null;
 
     profile.lastLatencyMs = latency as any;
     profile.lastReachable = latency !== null;
@@ -201,6 +207,7 @@ export class ScannerService {
     if (resolvedIp) {
       profile.rawConfig = { ...(profile.rawConfig || {}), resolvedIps: [resolvedIp] };
     }
+    const score = this.anycastService.applyScore(profile, observation);
     await this.profilesRepository.save(profile);
 
     if (resolvedIp) {
@@ -217,14 +224,7 @@ export class ScannerService {
         }
       }
 
-      const sampleCount = await this.scanHistoryRepository.count({ where: { profileId: profile.id, resolvedIp } });
-      const score = await this.anycastService.computeAnycastScore(profile.id, resolvedIp);
-      if (score !== null) {
-        profile.anycastScore = score;
-        profile.anycastSamples = sampleCount;
-        await this.profilesRepository.save(profile);
-        await this.anycastService.updateAnycastScore(profile.id, resolvedIp, score, sampleCount);
-      }
+      await this.anycastService.updateAnycastScore(profile.id, resolvedIp, score, profile.anycastSamples);
     }
 
     return { profileId: profile.id, latency, reachable: latency !== null, resolvedIp };

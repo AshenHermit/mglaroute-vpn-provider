@@ -18,6 +18,7 @@ function harness() {
   };
   const subscriptionsRepo = {
     findOne: jest.fn().mockResolvedValue(subscription),
+    create: jest.fn((value: any) => ({ ...value })),
     save: jest.fn(async (value: any) => value),
     update: jest.fn().mockResolvedValue(undefined),
     increment: jest.fn().mockResolvedValue(undefined),
@@ -51,6 +52,32 @@ function harness() {
   const service = new (SubscriptionsService as any)(subscriptionsRepo, profilesRepo, parser);
   return { service, subscription, subscriptionsRepo, profilesRepo, parser, getSpy };
 }
+
+describe('SubscriptionsService', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('defaults new subscriptions to a 60-minute auto-update interval', async () => {
+    const h = harness();
+    h.subscriptionsRepo.create.mockImplementation((value: any) => ({ ...value }));
+
+    await h.service.create({ name: 'New sub', url: 'https://sub.test/new' });
+
+    expect(h.subscriptionsRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ autoUpdateIntervalMinutes: 60 }),
+    );
+  });
+
+  it('preserves an explicitly configured auto-update interval', async () => {
+    const h = harness();
+    h.subscriptionsRepo.create.mockImplementation((value: any) => ({ ...value }));
+
+    await h.service.create({ name: 'New sub', url: 'https://sub.test/new', autoUpdateIntervalMinutes: 0 });
+
+    expect(h.subscriptionsRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ autoUpdateIntervalMinutes: 0 }),
+    );
+  });
+});
 
 describe('SubscriptionsService.fetch', () => {
   afterEach(() => jest.restoreAllMocks());

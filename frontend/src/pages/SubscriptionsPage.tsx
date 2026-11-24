@@ -24,11 +24,19 @@ interface Subscription {
   name: string;
   url: string;
   status: SubscriptionStatus;
+  enabled: boolean;
+  autoUpdateIntervalMinutes: number;
   serverCount: number;
   lastError: string | null;
   lastFetchedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface FetchResult {
+  ok: boolean;
+  message: string;
+  parsed?: number;
 }
 
 interface SubscriptionsResponse {
@@ -45,9 +53,10 @@ export function SubscriptionsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSub, setEditingSub] = useState<Subscription | null>(null);
-  const [formData, setFormData] = useState({ name: '', url: '', enabled: true });
+  const [formData, setFormData] = useState({ name: '', url: '', enabled: true, autoUpdateIntervalMinutes: 60 });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [fetchingId, setFetchingId] = useState<string | null>(null);
 
   const fetchSubscriptions = async () => {
     try {
@@ -70,14 +79,19 @@ export function SubscriptionsPage() {
 
   const openCreateDialog = () => {
     setEditingSub(null);
-    setFormData({ name: '', url: '', enabled: true });
+    setFormData({ name: '', url: '', enabled: true, autoUpdateIntervalMinutes: 60 });
     setFormError('');
     setDialogOpen(true);
   };
 
   const openEditDialog = (sub: Subscription) => {
     setEditingSub(sub);
-    setFormData({ name: sub.name, url: sub.url, enabled: sub.status === 'active' });
+    setFormData({
+      name: sub.name,
+      url: sub.url,
+      enabled: sub.enabled,
+      autoUpdateIntervalMinutes: sub.autoUpdateIntervalMinutes ?? 60,
+    });
     setFormError('');
     setDialogOpen(true);
   };
@@ -94,7 +108,9 @@ export function SubscriptionsPage() {
     const payload = {
       name: formData.name,
       url: formData.url,
+      enabled: formData.enabled,
       status: formData.enabled ? 'active' : 'inactive',
+      autoUpdateIntervalMinutes: formData.autoUpdateIntervalMinutes,
     };
 
     setSubmitting(true);
@@ -120,6 +136,20 @@ export function SubscriptionsPage() {
       fetchSubscriptions();
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to delete subscription'));
+    }
+  };
+
+  const handleFetch = async (sub: Subscription) => {
+    setFetchingId(sub.id);
+    setError(null);
+    try {
+      const result = await api.post<FetchResult>(`/api/subscriptions/${sub.id}/fetch`);
+      if (!result?.ok) throw new Error(result?.message || 'Fetch failed');
+      await fetchSubscriptions();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch subscription'));
+    } finally {
+      setFetchingId(null);
     }
   };
 
@@ -193,6 +223,17 @@ export function SubscriptionsPage() {
                       Enabled
                     </Label>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="autoUpdateIntervalMinutes">Auto-update interval (minutes, 0 = off)</Label>
+                    <Input
+                      id="autoUpdateIntervalMinutes"
+                      type="number"
+                      min={0}
+                      value={formData.autoUpdateIntervalMinutes}
+                      onChange={(e) => setFormData({ ...formData, autoUpdateIntervalMinutes: Number(e.target.value) })}
+                      disabled={submitting}
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>
@@ -223,14 +264,15 @@ export function SubscriptionsPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>URL</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Auto-update</TableHead>
                 <TableHead>Last Fetched</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
+                <TableHead className="w-[140px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {subscriptions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No subscriptions yet. Click "Add Subscription" to get started.
                   </TableCell>
                 </TableRow>
@@ -254,11 +296,27 @@ export function SubscriptionsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
+                      {sub.autoUpdateIntervalMinutes > 0 ? `${sub.autoUpdateIntervalMinutes} min` : 'Off'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {sub.lastFetchedAt ? formatDateTime(sub.lastFetchedAt) : 'Never'}
                       <span className="ml-2 text-xs">({sub.serverCount} servers)</span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Fetch now"
+                          onClick={() => handleFetch(sub)}
+                          disabled={fetchingId === sub.id}
+                        >
+                          {fetchingId === sub.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(sub)}>
                           <Edit className="h-4 w-4" />
                         </Button>

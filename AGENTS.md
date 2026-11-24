@@ -19,7 +19,8 @@ Spec: `PLAN.md`. Task-by-task plan: `docs/superpowers/plans/2026-11-23-mglaroute
 - `profiles/` — parsed server profiles; list, `/:id`, `/subscription/:subscriptionId`
 - `online-services/` — named service profiles (test URLs) CRUD + `/enabled`
 - `scanner/` — parser, xray delay + service check through the same proxy session, DNS resolve, anycast score, `ScanHistory`, cron
-- `query/` — filtered/sorted/paginated server query + anycast endpoints; only unit spec here (`query.service.spec.ts`)
+- `query/` — filtered/sorted/paginated server query + anycast endpoints; shared filter/sort helper `server-filter.ts`
+- `feed/` — public server feed: raw subscription link rebuild, JSON details, `GET /api/feed`
 - `settings/` — `scanner_settings` singleton (`id='singleton'`)
 - `health/` — `GET /api/health`
 - `common/` — postgres config/data-source, redis, http, guards (JWT / first-run / public), decorators, envelope interceptor + exception filter
@@ -34,7 +35,7 @@ Spec: `PLAN.md`. Task-by-task plan: `docs/superpowers/plans/2026-11-23-mglaroute
 ## API (global prefix `/api`)
 Every response wrapped `{ ok, code?, message?, data? }` (EnvelopeInterceptor + EnvelopeExceptionFilter). Frontend unwraps `data`; errors throw with envelope `code`.
 
-Public: `GET /api/health`, `GET /api/auth/first-run`, `POST /api/auth/setup`, `POST /api/auth/login`. All else behind `JwtAuthGuard` (`Authorization: Bearer <token>`).
+Public: `GET /api/health`, `GET /api/auth/first-run`, `POST /api/auth/setup`, `POST /api/auth/login`, `GET /api/feed`. All else behind `JwtAuthGuard` (`Authorization: Bearer <token>`). Public feed returns a RAW body (no envelope) — `format=subscription` (default, `text/plain`) or `format=json`.
 
 - `GET /api/auth/me`
 - Subscriptions: `GET|POST /api/subscriptions`, `GET|PUT|DELETE /api/subscriptions/:id`, `POST /api/subscriptions/:id/fetch` (partial)
@@ -43,13 +44,15 @@ Public: `GET /api/health`, `GET /api/auth/first-run`, `POST /api/auth/setup`, `P
 - Settings: `GET|PUT /api/settings`
 - Scanner: `POST /api/scanner/run`, `GET /api/scanner/status`
 - Servers: `GET /api/servers` (`services[]` = all requested service IDs reachable, `anycast`, `limit`, `page`, `sort`, `search`, `protocol`, `reachable`), `GET /api/servers/anycast`, `GET /api/servers/:id/anycast`. Rows carry `services: string[]` (reachable IDs, names stay editable in `online_services`) and `servicesCheckedAt`
+- Public feed: `GET /api/feed` — `format=subscription|json`, `search`, `protocol`, `reachable`, `anycast`, `services` (comma list), `sort`, `limit` (1..1000, default 200). Only `present` profiles from subscriptions with `status=active AND enabled=true`; dedup raw links; JSON carries scan details plus newest `anycast_scores.resolvedIp`.
 - Swagger UI: `/api/docs`
 
 ## Data / invariants
 - Tables/entities: `users`, `subscriptions`, `profiles`, `online_services`, `scanner_settings`, `scan_history`, `anycast_scores`.
 - Schema via TypeORM `synchronize` (`DB_SYNCHRONIZE=true` dev, `false` prod). Migration scripts exist in `backend/package.json` but no migration files yet — don't assume migrations work.
 - Parser accepts `vmess://` (base64 JSON), `vless://`, `ss://` (base64 and method:pass forms), `trojan://`, and base64-encoded clash-style YAML; bad lines skipped and counted, never abort whole parse.
-- Anycast = confidence 0..1, `1 - uniqueIps/sampleCount`; `null` until `anycastMinSamples` (default 3). Never a boolean.
+- Anycast = availability score 0..1 over the last 10 fresh service checks: `losses / window.length` (`profiles.anycastWindow jsonb boolean[]`). Regex `/anycast|auto/i` in `remarks`/`name` → `1.0`; `servicesFingerprint` change clears the window. `null` only for legacy/unscanned rows. Never a boolean.
+- `anycast_scores` is informational only — a `(profileId, resolvedIp)` lookup for the public feed's `resolvedIp`. `anycastMinSamples` stays in API/DB for compatibility but is unused; `anycastThreshold` stays default `0.5`, editable in `/settings`.
 - Region/country detection intentionally OUT (see `PLAN.md`).
 - First run: `GET /api/auth/first-run` drives `/setup`; setup blocked once an admin exists.
 - Scanner: cron `EVERY_5_MINUTES` + manual trigger; `running` flag prevents overlapping runs. Fetch failures set subscription status `error`, preserve previously parsed profiles.
@@ -76,7 +79,6 @@ Caddy only: `docker compose -f docker-compose.caddy.yml up -d` (needs external `
 - `POST /api/subscriptions/:id/fetch` only downloads bytes; it does not parse or persist profiles.
 - Scanner reads `concurrency` but scans profiles sequentially; no concurrency cap implemented.
 - Cron interval fixed at 5 min; `intervalSeconds` setting is logged only, never applied.
-- Anycast history is filtered by the same `resolvedIp` before computing unique IPs → unique count is 1, score degenerates toward 1. Verify before relying on it.
 - No migrations directory, no git repo, no `mglaroute-vpn-client` in this workspace.
 
 ## Conventions

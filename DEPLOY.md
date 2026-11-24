@@ -79,8 +79,13 @@ Caddy handles internal routing based on Host header. No TLS at Caddy level — r
 
 1. Copy `.env.example` to `.env`
 2. Set production values (especially `JWT_SECRET`, `FRONTEND_URL`)
-3. Run `docker-compose -f docker-compose.prod.yml up -d`
-4. Complete first-run setup at `https://admin.mglaroute.ashen-hermit.space/setup`
+3. With `DB_SYNCHRONIZE=false`, apply pending schema changes manually before starting the backend:
+   ```sql
+   ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "anycastWindow" jsonb NOT NULL DEFAULT '[]'::jsonb;
+   ```
+   Dev with `DB_SYNCHRONIZE=true` adds this column automatically.
+4. Run `docker-compose -f docker-compose.prod.yml up -d`
+5. Complete first-run setup at `https://admin.mglaroute.ashen-hermit.space/setup`
 
 ### CORS
 

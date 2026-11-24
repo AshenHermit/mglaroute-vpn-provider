@@ -28,6 +28,7 @@ backend/          NestJS API
   online-services/ OnlineServiceProfile CRUD
   scanner/        Cron: latency, reachability, anycast score
   query/          Filtered/sorted server list API
+  feed/           Public raw subscription / JSON server feed
   settings/       Scanner settings singleton
   common/         Redis, postgres, http client, envelope reply
 

@@ -14,6 +14,7 @@ import { ProfilesModule } from './profiles/profiles.module';
 import { OnlineServicesModule } from './online-services/online-services.module';
 import { ScannerModule } from './scanner/scanner.module';
 import { QueryModule } from './query/query.module';
+import { FeedModule } from './feed/feed.module';
 import { HealthModule } from './health/health.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { EnvelopeInterceptor } from './common/interceptors/envelope.interceptor';
@@ -35,6 +36,7 @@ import { EnvelopeInterceptor } from './common/interceptors/envelope.interceptor'
     OnlineServicesModule,
     ScannerModule,
     QueryModule,
+    FeedModule,
     HealthModule,
   ],
   providers: [

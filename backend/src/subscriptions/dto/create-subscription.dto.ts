@@ -21,7 +21,7 @@ export class CreateSubscriptionDto {
   @IsBoolean()
   enabled?: boolean;
 
-  @ApiPropertyOptional({ default: 0, description: '0 disables per-subscription auto-update' })
+  @ApiPropertyOptional({ default: 60, description: 'Minutes between automatic re-fetches; 0 disables per-subscription auto-update' })
   @IsOptional()
   @IsInt()
   @Min(0)

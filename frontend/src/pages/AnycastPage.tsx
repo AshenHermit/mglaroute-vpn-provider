@@ -78,9 +78,9 @@ export function AnycastPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <BarChart2 className="h-8 w-8 text-primary" />
-            AnyCast Confidence
+            AnyCast Availability Score
           </h1>
-          <p className="text-muted-foreground">AnyCast IP detection confidence scores (0.0 - 1.0)</p>
+          <p className="text-muted-foreground">Score from service availability during fresh checks (0.0 - 1.0)</p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchEntries} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -106,7 +106,7 @@ export function AnycastPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">High Confidence (≥0.8)</CardTitle>
+            <CardTitle className="text-sm font-medium">High Score (≥0.8)</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
@@ -117,7 +117,7 @@ export function AnycastPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Medium Confidence (0.5-0.8)</CardTitle>
+            <CardTitle className="text-sm font-medium">Medium Score (0.5-0.8)</CardTitle>
             <AlertTriangle className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
@@ -128,7 +128,7 @@ export function AnycastPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Confidence ({"<"}0.5)</CardTitle>
+            <CardTitle className="text-sm font-medium">Low Score ({"<"}0.5)</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
@@ -188,15 +188,10 @@ export function AnycastPage() {
           <CardTitle>About AnyCast Scoring</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p><strong>AnyCast Score (0.0 - 1.0):</strong> Confidence that a resolved IP serves multiple geographic locations (AnyCast).</p>
-          <p><strong>Sample Count:</strong> Number of times this IP has been observed across different scans.</p>
-          <p><strong>Minimum Samples:</strong> Configured in Scanner Settings (default: 5). Scores are only calculated after reaching this threshold.</p>
-          <p className="font-mono">
-            Score interpretation:<br />
-            • 0.80 - 1.00: High confidence AnyCast (likely CDN/load balancer)<br />
-            • 0.50 - 0.79: Medium confidence<br />
-            • 0.00 - 0.49: Low confidence (likely unicast)
-          </p>
+          <p><strong>AnyCast Score (0.0 - 1.0):</strong> Share of the last 10 fresh service checks in which at least one enabled service was unreachable. Stable servers score near 0.0.</p>
+          <p><strong>Name override:</strong> If remarks or name contains <code>anycast</code> or <code>auto</code>, the score is forced to 1.0.</p>
+          <p><strong>Reset:</strong> Changing service settings (URLs, added/removed/disabled services) clears the accumulated window.</p>
+          <p><strong>Sample Count:</strong> Accumulated fresh checks in the window, maximum 10.</p>
         </CardContent>
       </Card>
     </div>

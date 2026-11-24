@@ -2,6 +2,7 @@ import * as axiosModule from 'axios';
 import * as dns from 'dns';
 import { Protocol } from '../profiles/profile.entity';
 import { SubscriptionStatus } from '../subscriptions/subscription.entity';
+import { AnycastService } from './anycast.service';
 import { computeServicesFingerprint } from './service-fingerprint';
 import { ScannerService } from './scanner.service';
 
@@ -35,6 +36,7 @@ function fixture(overrides: Record<string, any> = {}) {
     lastReachable: null,
     anycastScore: null,
     anycastSamples: 0,
+    anycastWindow: [],
     present: true,
     lastScannedAt: null,
     serviceIds: [],
@@ -82,7 +84,7 @@ type Harness = {
   getSpy: jest.SpyInstance;
 };
 
-function harness(parsed: any[] = [fixture()]): Harness {
+function harness(parsed: any[] = [fixture()], anycastOverride?: any): Harness {
   const subscriptionsRepo = { find: jest.fn().mockResolvedValue([subscription()]) };
   const profilesRepo = {
     create: jest.fn((value: any) => ({ ...value })),
@@ -98,8 +100,15 @@ function harness(parsed: any[] = [fixture()]): Harness {
   };
   const parser = { parseSubscriptionText: jest.fn().mockReturnValue({ profiles: parsed, skipped: 0 }) };
   const latency = { measureLatency: jest.fn().mockResolvedValue(55) };
-  const anycast = {
-    computeAnycastScore: jest.fn().mockResolvedValue(null),
+  const anycast = anycastOverride ?? {
+    applyScore: jest.fn((p: any, observation: any) => {
+      if (observation && observation.fingerprint !== p.servicesFingerprint) {
+        p.servicesFingerprint = observation.fingerprint;
+      }
+      p.anycastScore = 0;
+      p.anycastSamples = 0;
+      return 0;
+    }),
     updateAnycastScore: jest.fn().mockResolvedValue(undefined),
   };
   const subscriptionsService = {
@@ -177,9 +186,91 @@ describe('ScannerService', () => {
 
     await h.service.runScan();
 
-    expect(h.anycast.computeAnycastScore).toHaveBeenCalledWith(expect.any(String), '144.31.225.5');
-    expect(h.anycast.computeAnycastScore.mock.calls.every((call: any[]) => call[1] !== '')).toBe(true);
+    expect(h.anycast.applyScore).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'p-1' }),
+      expect.objectContaining({ reachableCount: 0, expectedCount: 0 }),
+    );
+    expect(h.anycast.updateAnycastScore).toHaveBeenCalledWith('p-1', '144.31.225.5', 0, 0);
+    expect(h.anycast.updateAnycastScore.mock.calls.every((call: any[]) => call[1] !== '')).toBe(true);
     expect(h.service.getStatus().lastScanResult.profilesScanned).toBe(1);
+  });
+
+  it('passes fresh service check counts as an observation', async () => {
+    const services = [
+      onlineService('svc-1', ['https://a.test/']),
+      onlineService('svc-2', ['https://b.test/']),
+    ];
+    const h = harness();
+    h.subscriptionsRepo.find.mockResolvedValue([subscription({ autoUpdateIntervalMinutes: 0 })]);
+    h.profilesRepo.find.mockResolvedValue([fixture()]);
+    h.onlineRepo.find.mockResolvedValue(services);
+    h.serviceCheck.check.mockResolvedValue(new Set(['https://a.test/']));
+
+    await h.service.runScan();
+
+    expect(h.anycast.applyScore).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'p-1' }),
+      { fingerprint: fingerprintOf(services), reachableCount: 1, expectedCount: 2 },
+    );
+  });
+
+  it('does not record an observation when the service check is cached', async () => {
+    const services = [onlineService('svc-1', ['https://a.test/'])];
+    const h = harness();
+    h.subscriptionsRepo.find.mockResolvedValue([subscription({ autoUpdateIntervalMinutes: 0 })]);
+    h.profilesRepo.find.mockResolvedValue([
+      fixture({
+        address: '1.2.3.4',
+        servicesCheckedAt: new Date(),
+        servicesFingerprint: fingerprintOf(services),
+        serviceIds: ['svc-1'],
+      }),
+    ]);
+    h.onlineRepo.find.mockResolvedValue(services);
+
+    await h.service.runScan();
+
+    expect(h.anycast.applyScore).toHaveBeenCalledWith(expect.objectContaining({ id: 'p-1' }), null);
+    expect(h.serviceCheck.check).not.toHaveBeenCalled();
+  });
+
+  it('resets the anycast window when service settings change', async () => {
+    const oldServices = [onlineService('svc-1', ['https://old.test/'])];
+    const newServices = [onlineService('svc-1', ['https://new.test/'])];
+    const scoreRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((v: any) => ({ ...v })),
+      save: jest.fn(async (v: any) => v),
+    };
+    const h = harness([], new AnycastService(scoreRepo as any));
+    h.subscriptionsRepo.find.mockResolvedValue([subscription({ autoUpdateIntervalMinutes: 0 })]);
+    h.profilesRepo.find.mockResolvedValue([
+      fixture({
+        address: '1.2.3.4',
+        servicesCheckedAt: new Date(),
+        servicesFingerprint: fingerprintOf(oldServices),
+        serviceIds: ['svc-1'],
+        anycastWindow: [true, true, true],
+        anycastScore: 1,
+        anycastSamples: 3,
+      }),
+    ]);
+    h.onlineRepo.find.mockResolvedValue(newServices);
+    h.serviceCheck.check.mockResolvedValue(new Set(['https://new.test/']));
+
+    await h.service.runScan();
+
+    const saved = storedProfile(h);
+    expect(saved.servicesFingerprint).toBe(fingerprintOf(newServices));
+    expect(saved.anycastWindow).toEqual([false]);
+    expect(saved.anycastScore).toBe(0);
+    expect(saved.anycastSamples).toBe(1);
+    expect(scoreRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: 'p-1',
+      resolvedIp: '1.2.3.4',
+      score: 0,
+      sampleCount: 1,
+    }));
   });
 
   it('continues with the next profile after one profile throws', async () => {

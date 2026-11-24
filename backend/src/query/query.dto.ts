@@ -1,5 +1,6 @@
 import { IsOptional, IsString, IsBoolean, IsArray, IsNumber, Min, Max, IsIn } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { toBoolean } from '../common/transforms/to-boolean';
 
 export class QueryServersDto {
   @IsOptional()
@@ -8,7 +9,8 @@ export class QueryServersDto {
   services?: string[];
 
   @IsOptional()
-  @Transform(({ value }) => (value === undefined ? undefined : value === 'true'))
+  @Type(() => String)
+  @Transform(({ value }) => toBoolean(value))
   @IsBoolean()
   anycast?: boolean;
 
@@ -45,7 +47,8 @@ export class QueryServersDto {
   protocol?: string;
 
   @IsOptional()
-  @Transform(({ value }) => (value === undefined ? undefined : value === 'true'))
+  @Type(() => String)
+  @Transform(({ value }) => toBoolean(value))
   @IsBoolean()
   reachable?: boolean;
 }

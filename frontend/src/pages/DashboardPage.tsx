@@ -4,6 +4,7 @@ import { formatDateTime } from '../lib/format';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Loader2, Database, Globe, Server, Activity, RefreshCw } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { FeedLinkPanel } from '../components/FeedLinkPanel';
 
 interface DashboardStats {
   totalSubscriptions: number;
@@ -107,6 +108,8 @@ export function DashboardPage() {
           </p>
         </CardContent>
       </Card>
+
+      <FeedLinkPanel />
     </div>
   );
 }

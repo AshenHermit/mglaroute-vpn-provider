@@ -1,39 +1,59 @@
 import { Injectable } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ScanHistory } from './scan-history.entity';
 import { AnycastScore } from './anycast-scores.entity';
-import { SettingsService } from '../settings/settings.service';
+import { Profile } from '../profiles/profile.entity';
+
+export const ANYCAST_WINDOW_SIZE = 10;
+
+export interface AnycastCheckObservation {
+  fingerprint: string | null;
+  reachableCount: number;
+  expectedCount: number;
+}
+
+const AUTO_PATTERN = /anycast|auto/i;
 
 @Injectable()
 export class AnycastService {
   constructor(
-    @InjectRepository(ScanHistory)
-    private scanHistoryRepository: Repository<ScanHistory>,
     @InjectRepository(AnycastScore)
     private anycastScoreRepository: Repository<AnycastScore>,
-    private settingsService: SettingsService,
   ) {}
 
-  async computeAnycastScore(profileId: string, resolvedIp: string): Promise<number | null> {
-    const settings = await this.settingsService.getSettings();
-    const minSamples = settings?.anycastMinSamples ?? 3;
+  applyScore(profile: Profile, observation: AnycastCheckObservation | null): number {
+    let window = Array.isArray(profile.anycastWindow) ? [...profile.anycastWindow] : [];
 
-    const history = await this.scanHistoryRepository.find({
-      where: { profileId, resolvedIp },
-      order: { scannedAt: 'DESC' },
-    });
+    if (observation) {
+      if (observation.fingerprint !== profile.servicesFingerprint) {
+        window = [];
+        profile.servicesFingerprint = observation.fingerprint;
+      }
+      if (observation.expectedCount > 0) {
+        window.push(observation.reachableCount < observation.expectedCount);
+      }
+    }
 
-    const sampleCount = history.length;
-    if (sampleCount < minSamples) return null;
+    if (window.length > ANYCAST_WINDOW_SIZE) {
+      window = window.slice(window.length - ANYCAST_WINDOW_SIZE);
+    }
 
-    const uniqueIps = new Set(history.map((h) => h.resolvedIp)).size;
-    const confidence = 1 - uniqueIps / sampleCount;
-    return Math.max(0, Math.min(1, confidence));
+    profile.anycastWindow = window;
+    profile.anycastSamples = window.length;
+
+    const forced = AUTO_PATTERN.test(`${profile.remarks || ''} ${profile.name || ''}`);
+    const losses = window.filter(Boolean).length;
+    const score = forced ? 1 : window.length === 0 ? 0 : Math.round((losses / window.length) * 100) / 100;
+    profile.anycastScore = score;
+    return score;
   }
 
-  async updateAnycastScore(profileId: string, resolvedIp: string, score: number | null, sampleCount: number): Promise<void> {
-    if (score === null) return;
+  async updateAnycastScore(
+    profileId: string,
+    resolvedIp: string,
+    score: number,
+    sampleCount: number,
+  ): Promise<void> {
     const existing = await this.anycastScoreRepository.findOne({
       where: { profileId, resolvedIp },
     });

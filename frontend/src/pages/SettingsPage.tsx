@@ -230,19 +230,6 @@ export function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="anycastMinSamples">AnyCast Minimum Samples</Label>
-                <Input
-                  id="anycastMinSamples"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={formData.anycastMinSamples}
-                  onChange={(e) => setFormData({ ...formData, anycastMinSamples: Number(e.target.value) })}
-                  disabled={saving}
-                />
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="anycastThreshold">AnyCast Threshold</Label>
                 <Input
                   id="anycastThreshold"
@@ -358,7 +345,7 @@ export function SettingsPage() {
             <strong>timeoutMs:</strong> Maximum time to wait for a single server check.<br />
             <strong>concurrency:</strong> Number of servers to check in parallel.<br />
             <strong>latencyThresholdMs:</strong> Servers above this latency are considered slow.<br />
-            <strong>anycastMinSamples:</strong> Minimum samples required before calculating AnyCast confidence score.<br />
+            <strong>anycastMinSamples:</strong> retained for API compatibility; unused by the availability-based score.<br />
             <strong>anycastThreshold:</strong> Confidence threshold for flagging an AnyCast server.<br />
             <strong>serviceCheckExpirationSeconds:</strong> How long a service check result stays valid per server.<br />
             <strong>enabled:</strong> Enable/disable automatic scanning.

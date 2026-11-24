@@ -21,7 +21,10 @@ export class SubscriptionsService {
   ) {}
 
   async create(dto: CreateSubscriptionDto): Promise<Subscription> {
-    const subscription = this.subscriptionsRepository.create(dto);
+    const subscription = this.subscriptionsRepository.create({
+      ...dto,
+      autoUpdateIntervalMinutes: dto.autoUpdateIntervalMinutes ?? 60,
+    });
     return this.subscriptionsRepository.save(subscription);
   }
 
