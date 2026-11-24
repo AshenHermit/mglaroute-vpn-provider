@@ -16,6 +16,7 @@ interface ScannerSettings {
   latencyThresholdMs: number;
   anycastMinSamples: number;
   anycastThreshold: number | string;
+  serviceCheckExpirationSeconds: number;
   enabled: boolean;
   updatedAt: string;
 }
@@ -40,6 +41,7 @@ type SettingsForm = {
   latencyThresholdMs: number;
   anycastMinSamples: number;
   anycastThreshold: number;
+  serviceCheckExpirationSeconds: number;
   enabled: boolean;
 };
 
@@ -59,6 +61,7 @@ export function SettingsPage() {
     latencyThresholdMs: 5000,
     anycastMinSamples: 3,
     anycastThreshold: 0.5,
+    serviceCheckExpirationSeconds: 3600,
     enabled: true,
   });
 
@@ -88,6 +91,7 @@ export function SettingsPage() {
         latencyThresholdMs: settingsData.latencyThresholdMs,
         anycastMinSamples: settingsData.anycastMinSamples,
         anycastThreshold: Number(settingsData.anycastThreshold),
+        serviceCheckExpirationSeconds: Number(settingsData.serviceCheckExpirationSeconds) || 3600,
         enabled: settingsData.enabled,
       });
       setError(null);
@@ -251,6 +255,22 @@ export function SettingsPage() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="serviceCheckExpirationSeconds">Service Check Expiration (seconds)</Label>
+                <Input
+                  id="serviceCheckExpirationSeconds"
+                  type="number"
+                  min="60"
+                  max="604800"
+                  value={formData.serviceCheckExpirationSeconds}
+                  onChange={(e) => setFormData({ ...formData, serviceCheckExpirationSeconds: Number(e.target.value) })}
+                  disabled={saving}
+                />
+                <p className="text-xs text-muted-foreground">
+                  How long a service availability result is cached per server before it is rechecked.
+                </p>
+              </div>
+
               <div className="flex items-center gap-2">
                 <Switch
                   id="enabled"
@@ -339,6 +359,7 @@ export function SettingsPage() {
             <strong>latencyThresholdMs:</strong> Servers above this latency are considered slow.<br />
             <strong>anycastMinSamples:</strong> Minimum samples required before calculating AnyCast confidence score.<br />
             <strong>anycastThreshold:</strong> Confidence threshold for flagging an AnyCast server.<br />
+            <strong>serviceCheckExpirationSeconds:</strong> How long a service check result stays valid per server.<br />
             <strong>enabled:</strong> Enable/disable automatic scanning.
           </p>
         </CardContent>

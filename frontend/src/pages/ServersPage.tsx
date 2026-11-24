@@ -28,7 +28,14 @@ interface Server {
   reachable: boolean | null;
   anycastConfidence: number | null;
   anycastSampleCount: number;
+  services: string[];
+  servicesCheckedAt: string | null;
   lastScannedAt: string | null;
+}
+
+interface EnabledService {
+  id: string;
+  name: string;
 }
 
 interface ServersResponse {
@@ -50,6 +57,7 @@ const SORT_COLUMNS: Record<string, string> = {
 
 export function ServersPage() {
   const [servers, setServers] = useState<Server[]>([]);
+  const [enabledServices, setEnabledServices] = useState<EnabledService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -60,6 +68,7 @@ export function ServersPage() {
     search: '',
     protocol: '',
     reachable: '',
+    service: '',
     sortBy: 'latency',
     sortOrder: 'asc' as 'asc' | 'desc',
   });
@@ -75,6 +84,7 @@ export function ServersPage() {
       if (filters.search) params.set('search', filters.search);
       if (filters.protocol) params.set('protocol', filters.protocol);
       if (filters.reachable) params.set('reachable', filters.reachable);
+      if (filters.service) params.append('services[]', filters.service);
       const sortColumn = SORT_COLUMNS[filters.sortBy] || 'latency';
       params.set('sort', `${sortColumn}_${filters.sortOrder}`);
 
@@ -96,8 +106,22 @@ export function ServersPage() {
   };
 
   useEffect(() => {
+    const fetchEnabledServices = async () => {
+      try {
+        const rows = await api.get<EnabledService[]>('/api/online-services/enabled');
+        setEnabledServices(Array.isArray(rows) ? rows : []);
+      } catch {
+        // Service labels are best-effort; raw IDs are rendered as fallback.
+      }
+    };
+    void fetchEnabledServices();
+  }, []);
+
+  const serviceNames = new Map(enabledServices.map((service) => [service.id, service.name]));
+
+  useEffect(() => {
     fetchServers();
-  }, [page, pageSize, filters.search, filters.protocol, filters.reachable, filters.sortBy, filters.sortOrder]);
+  }, [page, pageSize, filters.search, filters.protocol, filters.reachable, filters.service, filters.sortBy, filters.sortOrder]);
 
   const handleSort = (column: string) => {
     setFilters((prev) => ({
@@ -188,6 +212,22 @@ export function ServersPage() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="service">Service</Label>
+              <Select value={filters.service} onValueChange={(v) => setFilters({ ...filters, service: v })}>
+                <SelectTrigger id="service">
+                  <SelectValue placeholder="All services" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  {enabledServices.map((service) => (
+                    <SelectItem key={service.id} value={service.id}>
+                      {service.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="pageSize">Page Size</Label>
               <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
                 <SelectTrigger id="pageSize">
@@ -236,6 +276,7 @@ export function ServersPage() {
                   </div>
                 </TableHead>
                 <TableHead>Reachable</TableHead>
+                <TableHead>Services</TableHead>
                 <TableHead className="cursor-pointer" onClick={() => handleSort('anycastScore')}>
                   <div className="flex items-center gap-1">
                     AnyCast <SortIcon column="anycastScore" />
@@ -246,7 +287,7 @@ export function ServersPage() {
             <TableBody>
               {servers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No servers found. Adjust filters or run a scan.
                   </TableCell>
                 </TableRow>
@@ -274,6 +315,19 @@ export function ServersPage() {
                         <Badge variant="destructive">No</Badge>
                       ) : (
                         <Badge variant="secondary">Unknown</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {server.services?.length ? (
+                        <div className="flex flex-wrap gap-1 max-w-[240px]">
+                          {server.services.map((id) => (
+                            <Badge key={id} variant="outline" title={id}>
+                              {serviceNames.get(id) ?? id}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>
