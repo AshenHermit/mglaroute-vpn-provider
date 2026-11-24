@@ -41,4 +41,10 @@ export class UpdateSettingsDto {
   @IsNumber()
   @Min(0)
   latencyThresholdMs?: number;
+
+  @ApiPropertyOptional({ default: 3600 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  serviceCheckExpirationSeconds?: number;
 }

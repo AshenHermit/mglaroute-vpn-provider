@@ -23,6 +23,7 @@ export class SettingsService implements OnModuleInit {
         anycastThreshold: 0.5,
         enabled: true,
         latencyThresholdMs: 5000,
+        serviceCheckExpirationSeconds: 3600,
       });
       await this.settingsRepository.save(defaults);
     }

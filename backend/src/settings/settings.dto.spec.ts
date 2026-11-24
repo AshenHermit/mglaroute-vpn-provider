@@ -14,4 +14,10 @@ describe('UpdateSettingsDto', () => {
     const errors = await validate(dto, { whitelist: true, forbidNonWhitelisted: true });
     expect(errors.some((error) => error.property === 'scanIntervalMinutes')).toBe(true);
   });
+
+  it('accepts serviceCheckExpirationSeconds', async () => {
+    const dto = plainToInstance(UpdateSettingsDto, { serviceCheckExpirationSeconds: 7200 });
+    const errors = await validate(dto, { whitelist: true, forbidNonWhitelisted: true });
+    expect(errors).toHaveLength(0);
+  });
 });

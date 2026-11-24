@@ -32,6 +32,9 @@ export class ScannerSettings {
   @Column({ default: 5000 })
   latencyThresholdMs: number;
 
+  @Column({ default: 3600 })
+  serviceCheckExpirationSeconds: number;
+
   @CreateDateColumn()
   createdAt: Date;
 
