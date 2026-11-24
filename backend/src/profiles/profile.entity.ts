@@ -105,6 +105,15 @@ export class Profile {
   @Column({ nullable: true })
   lastScannedAt: Date;
 
+  @Column({ type: 'jsonb', default: [] })
+  serviceIds: string[];
+
+  @Column({ type: 'timestamp', nullable: true })
+  servicesCheckedAt: Date | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  servicesFingerprint: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -2,10 +2,11 @@ import * as axiosModule from 'axios';
 import * as dns from 'dns';
 import { Protocol } from '../profiles/profile.entity';
 import { SubscriptionStatus } from '../subscriptions/subscription.entity';
-import { ReachabilityService } from './reachability.service';
+import { computeServicesFingerprint } from './service-fingerprint';
 import { ScannerService } from './scanner.service';
 
 const SUB_ID = 'sub-1';
+const PROXY = { protocol: 'http', host: '127.0.0.1', port: 1080 } as const;
 
 function fixture(overrides: Record<string, any> = {}) {
   return {
@@ -36,6 +37,9 @@ function fixture(overrides: Record<string, any> = {}) {
     anycastSamples: 0,
     present: true,
     lastScannedAt: null,
+    serviceIds: [],
+    servicesCheckedAt: null,
+    servicesFingerprint: null,
     ...overrides,
   } as any;
 }
@@ -54,6 +58,14 @@ function subscription(overrides: Record<string, any> = {}) {
   } as any;
 }
 
+function onlineService(id: string, testUrls: string[]) {
+  return { id, name: id, isEnabled: true, testUrls } as any;
+}
+
+function fingerprintOf(services: Array<{ id: string; testUrls: string[] }>) {
+  return computeServicesFingerprint(services);
+}
+
 type Harness = {
   service: ScannerService;
   subscriptionsRepo: any;
@@ -66,6 +78,7 @@ type Harness = {
   subscriptionsService: any;
   settingsService: any;
   xrayDelay: any;
+  serviceCheck: any;
   getSpy: jest.SpyInstance;
 };
 
@@ -96,10 +109,17 @@ function harness(parsed: any[] = [fixture()]): Harness {
     markFetchError: jest.fn().mockResolvedValue(undefined),
   };
   const settingsService = {
-    getSettings: jest.fn().mockResolvedValue({ concurrency: 2, timeoutMs: 1000, intervalSeconds: 300 }),
+    getSettings: jest.fn().mockResolvedValue({
+      concurrency: 2,
+      timeoutMs: 1000,
+      intervalSeconds: 300,
+      serviceCheckExpirationSeconds: 3600,
+    }),
   };
+  const serviceCheck = { check: jest.fn().mockResolvedValue(new Set<string>()) };
   const xrayDelay = {
-    measureDelay: jest.fn().mockResolvedValue(42),
+    withProxy: jest.fn(async (_profile: any, _timeout: number, callback: any) => callback(PROXY)),
+    probeDelay: jest.fn().mockResolvedValue(42),
     isAvailable: jest.fn().mockReturnValue(true),
   };
   const getSpy = jest.spyOn(axiosModule.default, 'get').mockResolvedValue({
@@ -116,7 +136,7 @@ function harness(parsed: any[] = [fixture()]): Harness {
     historyRepo as any,
     parser as any,
     latency as any,
-    new ReachabilityService(),
+    serviceCheck as any,
     anycast as any,
     subscriptionsService as any,
     {} as any,
@@ -126,23 +146,27 @@ function harness(parsed: any[] = [fixture()]): Harness {
 
   return {
     service, subscriptionsRepo, profilesRepo, onlineRepo, historyRepo, parser, latency,
-    anycast, subscriptionsService, settingsService, xrayDelay, getSpy,
+    anycast, subscriptionsService, settingsService, xrayDelay, serviceCheck, getSpy,
   };
+}
+
+function storedProfile(h: Harness) {
+  return h.profilesRepo.save.mock.calls.map((call: any[]) => call[0]).find((p: any) => p.id === 'p-1');
 }
 
 describe('ScannerService', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('uses proxy:false for subscription fetch and reachability requests', async () => {
+  it('uses proxy:false only for the subscription fetch', async () => {
     const h = harness();
-    h.onlineRepo.find.mockResolvedValue([{ id: 'svc-1', isEnabled: true, testUrls: ['https://check.test/'] }]);
+    h.onlineRepo.find.mockResolvedValue([onlineService('svc-1', ['https://check.test/'])]);
 
     await h.service.runScan();
 
-    expect(h.getSpy).toHaveBeenCalled();
+    expect(h.getSpy).toHaveBeenCalledTimes(1);
     for (const [url, config] of h.getSpy.mock.calls) {
       expect(config).toMatchObject({ proxy: false });
-      expect(url).toBeTruthy();
+      expect(url).toBe('https://sub.test/list');
     }
   });
 
@@ -165,13 +189,11 @@ describe('ScannerService', () => {
       fixture({ id: 'p-1', serverId: 'server-1' }),
       fixture({ id: 'p-2', serverId: 'server-2', address: 'two.example.com' }),
     ]);
-    h.xrayDelay.measureDelay
-      .mockRejectedValueOnce(new Error('probe crashed'))
-      .mockResolvedValueOnce(77);
+    h.xrayDelay.withProxy.mockRejectedValueOnce(new Error('probe crashed'));
 
     await h.service.runScan();
 
-    expect(h.xrayDelay.measureDelay).toHaveBeenCalledTimes(2);
+    expect(h.xrayDelay.withProxy).toHaveBeenCalledTimes(2);
     expect(h.service.getStatus().lastScanResult.failed).toBeGreaterThanOrEqual(1);
     expect(h.service.getStatus().lastScanResult.succeeded).toBeGreaterThanOrEqual(1);
   });
@@ -201,7 +223,7 @@ describe('ScannerService', () => {
 
     await h.service.runScan();
 
-    expect(h.xrayDelay.measureDelay).toHaveBeenCalled();
+    expect(h.xrayDelay.withProxy).toHaveBeenCalled();
     expect(h.subscriptionsService.markFetchError).toHaveBeenCalledWith(SUB_ID, 'network down');
   });
 
@@ -209,11 +231,12 @@ describe('ScannerService', () => {
     const h = harness();
     h.subscriptionsRepo.find.mockResolvedValue([subscription({ autoUpdateIntervalMinutes: 0 })]);
     h.profilesRepo.find.mockResolvedValue([fixture()]);
-    h.xrayDelay.measureDelay.mockResolvedValue(null);
+    h.xrayDelay.probeDelay.mockResolvedValue(null);
 
     await h.service.runScan();
 
     expect(h.latency.measureLatency).not.toHaveBeenCalled();
+    expect(h.serviceCheck.check).not.toHaveBeenCalled();
     expect(h.service.getStatus().lastScanResult.details.some((d: any) => d.latency === null)).toBe(true);
   });
 
@@ -225,7 +248,7 @@ describe('ScannerService', () => {
 
     await h.service.runScan();
 
-    expect(h.xrayDelay.measureDelay).not.toHaveBeenCalled();
+    expect(h.xrayDelay.withProxy).not.toHaveBeenCalled();
     expect(h.latency.measureLatency).toHaveBeenCalledWith('example.com', 443, 1000);
   });
 
@@ -241,5 +264,91 @@ describe('ScannerService', () => {
     expect(h.profilesRepo.find).toHaveBeenCalledWith({
       where: { subscriptionId: SUB_ID, present: true },
     });
+  });
+
+  it('skips the service check and keeps the stored list when the delay probe fails', async () => {
+    const h = harness();
+    const storedCheckedAt = new Date('2026-01-01T00:00:00Z');
+    h.subscriptionsRepo.find.mockResolvedValue([subscription({ autoUpdateIntervalMinutes: 0 })]);
+    h.profilesRepo.find.mockResolvedValue([
+      fixture({ address: '1.2.3.4', servicesCheckedAt: storedCheckedAt, servicesFingerprint: 'old', serviceIds: ['svc-old'] }),
+    ]);
+    h.onlineRepo.find.mockResolvedValue([onlineService('svc-1', ['https://a.test/'])]);
+    h.xrayDelay.probeDelay.mockResolvedValue(null);
+
+    await h.service.runScan();
+
+    expect(h.serviceCheck.check).not.toHaveBeenCalled();
+    expect(storedProfile(h).servicesCheckedAt).toEqual(storedCheckedAt);
+    expect(storedProfile(h).serviceIds).toEqual(['svc-old']);
+    expect(h.historyRepo.save).toHaveBeenCalled();
+  });
+
+  it('does not re-check a profile stamped with the current fingerprint', async () => {
+    const h = harness();
+    const services = [onlineService('svc-1', ['https://a.test/'])];
+    h.subscriptionsRepo.find.mockResolvedValue([subscription({ autoUpdateIntervalMinutes: 0 })]);
+    h.profilesRepo.find.mockResolvedValue([
+      fixture({
+        address: '1.2.3.4',
+        servicesCheckedAt: new Date(),
+        servicesFingerprint: fingerprintOf(services),
+        serviceIds: ['svc-1'],
+      }),
+    ]);
+    h.onlineRepo.find.mockResolvedValue(services);
+
+    await h.service.runScan();
+
+    expect(h.serviceCheck.check).not.toHaveBeenCalled();
+    expect(h.historyRepo.save).toHaveBeenCalledWith(expect.objectContaining({ reachable: true }));
+  });
+
+  it('re-checks when the timestamp is missing', async () => {
+    const h = harness();
+    h.subscriptionsRepo.find.mockResolvedValue([subscription({ autoUpdateIntervalMinutes: 0 })]);
+    h.profilesRepo.find.mockResolvedValue([fixture({ servicesCheckedAt: null })]);
+    h.onlineRepo.find.mockResolvedValue([onlineService('svc-1', ['https://a.test/'])]);
+
+    await h.service.runScan();
+
+    expect(h.serviceCheck.check).toHaveBeenCalledWith(['https://a.test/'], PROXY, 1000);
+  });
+
+  it('re-checks when a service URL changed', async () => {
+    const h = harness();
+    const oldFingerprint = fingerprintOf([{ id: 'svc-1', testUrls: ['https://old.test/'] }]);
+    h.subscriptionsRepo.find.mockResolvedValue([subscription({ autoUpdateIntervalMinutes: 0 })]);
+    h.profilesRepo.find.mockResolvedValue([
+      fixture({ servicesCheckedAt: new Date(), servicesFingerprint: oldFingerprint }),
+    ]);
+    h.onlineRepo.find.mockResolvedValue([onlineService('svc-1', ['https://new.test/'])]);
+
+    await h.service.runScan();
+
+    expect(h.serviceCheck.check).toHaveBeenCalledWith(['https://new.test/'], PROXY, 1000);
+  });
+
+  it('stores only fully reachable IDs, maps shared URLs to all services and skips empty services', async () => {
+    const h = harness();
+    const services = [
+      onlineService('svc-1', ['https://a.test/', 'https://b.test/']),
+      onlineService('svc-2', ['https://c.test/']),
+      onlineService('svc-3', []),
+      onlineService('svc-4', ['https://c.test/']),
+    ];
+    h.subscriptionsRepo.find.mockResolvedValue([subscription({ autoUpdateIntervalMinutes: 0 })]);
+    h.profilesRepo.find.mockResolvedValue([fixture()]);
+    h.onlineRepo.find.mockResolvedValue(services);
+    h.serviceCheck.check.mockResolvedValue(new Set(['https://a.test/', 'https://c.test/']));
+
+    await h.service.runScan();
+
+    const saved = storedProfile(h);
+    expect([...saved.serviceIds].sort()).toEqual(['svc-2', 'svc-4']);
+    expect(saved.servicesCheckedAt).toBeInstanceOf(Date);
+    expect(saved.servicesFingerprint).toBe(fingerprintOf(services));
+    expect(h.serviceCheck.check.mock.calls[0][1]).toEqual(PROXY);
+    expect(h.serviceCheck.check.mock.calls[0][1]).not.toHaveProperty('proxy', false);
   });
 });

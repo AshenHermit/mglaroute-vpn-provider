@@ -11,7 +11,8 @@ import { ScanHistory } from './scan-history.entity';
 import { AnycastScore } from './anycast-scores.entity';
 import { ParserService } from './parser.service';
 import { LatencyService } from './latency.service';
-import { ReachabilityService } from './reachability.service';
+import { ServiceCheckService } from './service-check.service';
+import { computeServicesFingerprint } from './service-fingerprint';
 import { AnycastService } from './anycast.service';
 import { XrayDelayService } from './xray-delay.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
@@ -38,7 +39,7 @@ export class ScannerService {
     private scanHistoryRepository: Repository<ScanHistory>,
     private parserService: ParserService,
     private latencyService: LatencyService,
-    private reachabilityService: ReachabilityService,
+    private serviceCheckService: ServiceCheckService,
     private anycastService: AnycastService,
     private subscriptionsService: SubscriptionsService,
     private profilesService: ProfilesService,
@@ -158,15 +159,41 @@ export class ScannerService {
     timeoutMs: number,
   ): Promise<any> {
     const useTcpOnly = settings?.delayMode === 'tcp' || !this.xrayDelayService.isAvailable();
-    const latency = useTcpOnly
-      ? await this.latencyService.measureLatency(profile.address, profile.port, timeoutMs)
-      : await this.xrayDelayService.measureDelay(profile, timeoutMs);
+    let latency: number | null = null;
+    let checkedUrls: Set<string> | null = null;
+
+    if (useTcpOnly) {
+      latency = await this.latencyService.measureLatency(profile.address, profile.port, timeoutMs);
+    } else {
+      const fingerprint = computeServicesFingerprint(
+        onlineServices.map((service) => ({ id: service.id, testUrls: service.testUrls || [] })),
+      );
+      const expirationMs = Math.max(1, Number(settings?.serviceCheckExpirationSeconds ?? 3600)) * 1000;
+      const checkedAt = profile.servicesCheckedAt ? new Date(profile.servicesCheckedAt).getTime() : 0;
+      const due = !profile.servicesCheckedAt || profile.servicesFingerprint !== fingerprint
+        || Date.now() - checkedAt >= expirationMs;
+
+      const session = await this.xrayDelayService.withProxy(profile, timeoutMs, async (proxy) => {
+        const delay = await this.xrayDelayService.probeDelay(proxy, timeoutMs);
+        if (delay === null || !due) return { delay, okUrls: null as Set<string> | null };
+        const allUrls = onlineServices.flatMap((service) => service.testUrls || []);
+        const okUrls = await this.serviceCheckService.check(allUrls, proxy, timeoutMs);
+        return { delay, okUrls };
+      });
+
+      if (session !== null) {
+        latency = session.delay;
+        if (session.okUrls !== null) {
+          profile.serviceIds = this.reachableServiceIds(onlineServices, session.okUrls);
+          profile.servicesCheckedAt = new Date();
+          profile.servicesFingerprint = fingerprint;
+          checkedUrls = session.okUrls;
+        }
+      }
+    }
 
     const resolvedIp = await this.resolveIp(profile.address);
-    const urls = onlineServices.flatMap((service) => service.testUrls || []);
-    const reachability = urls.length
-      ? await this.reachabilityService.checkUrls(urls, timeoutMs)
-      : {};
+    const storedIds = new Set(profile.serviceIds || []);
 
     profile.lastLatencyMs = latency as any;
     profile.lastReachable = latency !== null;
@@ -183,7 +210,7 @@ export class ScannerService {
             profileId: profile.id,
             onlineServiceId: service.id,
             latencyMs: latency ?? undefined,
-            reachable: reachability[url] ?? false,
+            reachable: checkedUrls !== null ? checkedUrls.has(url) : storedIds.has(service.id),
             resolvedIp,
           });
           await this.scanHistoryRepository.save(entry);
@@ -201,6 +228,15 @@ export class ScannerService {
     }
 
     return { profileId: profile.id, latency, reachable: latency !== null, resolvedIp };
+  }
+
+  private reachableServiceIds(services: OnlineService[], okUrls: Set<string>): string[] {
+    return services
+      .filter((service) => {
+        const urls = service.testUrls || [];
+        return urls.length > 0 && urls.every((url) => okUrls.has(url));
+      })
+      .map((service) => service.id);
   }
 
   private async resolveIp(address: string): Promise<string | null> {

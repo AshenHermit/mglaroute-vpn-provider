@@ -12,6 +12,7 @@ import { AnycastService } from './anycast.service';
 import { ScannerService } from './scanner.service';
 import { CronService } from './cron.service';
 import { XrayDelayService } from './xray-delay.service';
+import { ServiceCheckService } from './service-check.service';
 import { ScannerController } from './scanner.controller';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { ProfilesModule } from '../profiles/profiles.module';
@@ -37,6 +38,7 @@ import { HttpModule } from '../common/http/http.module';
     ScannerService,
     CronService,
     XrayDelayService,
+    ServiceCheckService,
   ],
   exports: [ScannerService, ParserService],
 })
