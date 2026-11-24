@@ -144,4 +144,39 @@ describe('XrayDelayService', () => {
     await expect(service.measureDelay(makeProfile(), 5000)).resolves.toBeNull();
     expect(nowSpy).toHaveBeenCalled();
   });
+
+  it('withProxy passes a loopback proxy and kills the core after the callback resolves', async () => {
+    let aliveDuringCallback = false;
+
+    const result = await service.withProxy(makeProfile(), 5000, async (proxy) => {
+      expect(proxy).toEqual({ protocol: 'http', host: '127.0.0.1', port: expect.any(Number) });
+      aliveDuringCallback = kill.mock.calls.length === 0;
+      return 'done';
+    });
+
+    expect(result).toBe('done');
+    expect(aliveDuringCallback).toBe(true);
+    expect(kill).toHaveBeenCalledTimes(1);
+    expect(getSpy).not.toHaveBeenCalled();
+  });
+
+  it('withProxy kills the core and returns null when the callback rejects', async () => {
+    const result = await service.withProxy(makeProfile(), 5000, async () => {
+      throw new Error('callback failed');
+    });
+
+    expect(result).toBeNull();
+    expect(kill).toHaveBeenCalledTimes(1);
+  });
+
+  it('probeDelay uses the supplied proxy and returns the smallest positive sample', async () => {
+    const suppliedProxy = { protocol: 'http', host: '127.0.0.1', port: 4321 } as const;
+
+    const result = await service.probeDelay(suppliedProxy, 5000);
+
+    expect(result).toBe(10);
+    expect(getSpy).toHaveBeenCalledTimes(2);
+    expect(getSpy.mock.calls[0][1].proxy).toEqual(suppliedProxy);
+    expect(connectSpy).not.toHaveBeenCalled();
+  });
 });

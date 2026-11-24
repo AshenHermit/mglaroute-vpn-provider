@@ -11,6 +11,12 @@ import { buildDelayConfig, buildXrayOutbound } from './xray-outbound.builder';
 const PING_URL = process.env.XRAY_PING_URL || 'https://www.google.com/generate_204';
 const INTER_REQUEST_DELAY_MS = 100;
 
+export interface DelayProxy {
+  protocol: 'http';
+  host: '127.0.0.1';
+  port: number;
+}
+
 @Injectable()
 export class XrayDelayService {
   private readonly logger = new Logger(XrayDelayService.name);
@@ -20,6 +26,14 @@ export class XrayDelayService {
   }
 
   async measureDelay(profile: Profile, timeoutMs: number): Promise<number | null> {
+    return this.withProxy(profile, timeoutMs, (proxy) => this.probeDelay(proxy, timeoutMs));
+  }
+
+  async withProxy<T>(
+    profile: Profile,
+    timeoutMs: number,
+    callback: (proxy: DelayProxy) => Promise<T>,
+  ): Promise<T | null> {
     let configDir: string | null = null;
     let child: childProcess.ChildProcess | null = null;
 
@@ -59,29 +73,32 @@ export class XrayDelayService {
 
       if (!child) return null;
 
-      const proxy = { protocol: 'http', host: '127.0.0.1', port };
-      const samples: number[] = [];
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const before = Date.now();
-        const response = await axios.get(PING_URL, {
-          proxy,
-          timeout: timeoutMs,
-          validateStatus: () => true,
-        });
-        const after = Date.now();
-        if (response.status === 204 || response.status === 200) samples.push(after - before);
-        if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, INTER_REQUEST_DELAY_MS));
-      }
-
-      const positive = samples.filter((value) => value > 0);
-      return positive.length ? Math.min(...positive) : null;
+      return await callback({ protocol: 'http', host: '127.0.0.1', port });
     } catch (error: any) {
-      this.logger.debug(`delay probe failed: ${error?.message || error}`);
+      this.logger.debug(`xray session failed: ${error?.message || error}`);
       return null;
     } finally {
       if (child && !child.killed) child.kill();
       if (configDir) fs.rmSync(configDir, { recursive: true, force: true });
     }
+  }
+
+  async probeDelay(proxy: DelayProxy, timeoutMs: number): Promise<number | null> {
+    const samples: number[] = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const before = Date.now();
+      const response = await axios.get(PING_URL, {
+        proxy,
+        timeout: timeoutMs,
+        validateStatus: () => true,
+      });
+      const after = Date.now();
+      if (response.status === 204 || response.status === 200) samples.push(after - before);
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, INTER_REQUEST_DELAY_MS));
+    }
+
+    const positive = samples.filter((value) => value > 0);
+    return positive.length ? Math.min(...positive) : null;
   }
 
   private binaryPath(): string | null {
