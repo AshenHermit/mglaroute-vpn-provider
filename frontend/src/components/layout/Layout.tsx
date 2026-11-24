@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '../ui/avatar';
+import { ErrorBoundary } from '../ErrorBoundary';
 
 import {
   LayoutDashboard,
@@ -101,7 +102,9 @@ export function Layout() {
           </div>
         </header>
         <div className="p-6">
-          <Outlet />
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </main>
     </div>

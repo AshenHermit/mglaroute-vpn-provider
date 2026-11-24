@@ -8,7 +8,7 @@ export class QueryServersDto {
   services?: string[];
 
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => (value === undefined ? undefined : value === 'true'))
   @IsBoolean()
   anycast?: boolean;
 
@@ -26,10 +26,26 @@ export class QueryServersDto {
   page?: number = 1;
 
   @IsOptional()
-  @IsIn(['latency_asc', 'latency_desc', 'confidence_desc', 'confidence_asc'])
+  @IsIn([
+    'latency_asc', 'latency_desc',
+    'confidence_asc', 'confidence_desc',
+    'name_asc', 'name_desc',
+    'address_asc', 'address_desc',
+    'port_asc', 'port_desc',
+    'protocol_asc', 'protocol_desc',
+  ])
   sort?: string = 'latency_asc';
 
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  protocol?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === undefined ? undefined : value === 'true'))
+  @IsBoolean()
+  reachable?: boolean;
 }

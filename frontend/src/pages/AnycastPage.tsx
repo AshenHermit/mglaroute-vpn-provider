@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { api, getErrorMessage } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
@@ -25,11 +25,6 @@ interface AnycastEntry {
   createdAt: string;
 }
 
-interface AnycastResponse {
-  data: AnycastEntry[];
-  total: number;
-}
-
 export function AnycastPage() {
   const [entries, setEntries] = useState<AnycastEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,13 +34,13 @@ export function AnycastPage() {
   const fetchEntries = async () => {
     try {
       setLoading(true);
-      const result = await api.get<AnycastResponse>('/api/servers/anycast') as AnycastResponse;
-      setEntries(result.data || []);
-      setTotal(result.total || 0);
+      const result = await api.get<AnycastEntry[]>('/api/servers/anycast');
+      const list = Array.isArray(result) ? result : [];
+      setEntries(list.map((entry) => ({ ...entry, score: Number(entry.score) })));
+      setTotal(list.length);
       setError(null);
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to load AnyCast data');
+      setError(getErrorMessage(err, 'Failed to load AnyCast data'));
     } finally {
       setLoading(false);
     }
@@ -177,7 +172,7 @@ export function AnycastPage() {
                     </TableCell>
                     <TableCell className="font-mono">{entry.sampleCount}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(entry.lastUpdated).toLocaleString()}
+                      {entry.lastUpdated ? new Date(entry.lastUpdated).toLocaleString() : '-'}
                     </TableCell>
                   </TableRow>
                 ))

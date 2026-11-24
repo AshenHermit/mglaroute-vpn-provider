@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { api, getErrorMessage } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -16,14 +16,25 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Loader2, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
+type SubscriptionStatus = 'active' | 'inactive' | 'error';
+
 interface Subscription {
   id: string;
   name: string;
   url: string;
-  enabled: boolean;
-  lastFetched: string | null;
+  status: SubscriptionStatus;
+  serverCount: number;
+  lastError: string | null;
+  lastFetchedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface SubscriptionsResponse {
+  data: Subscription[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export function SubscriptionsPage() {
@@ -40,12 +51,13 @@ export function SubscriptionsPage() {
   const fetchSubscriptions = async () => {
     try {
       setLoading(true);
-      const result = await api.get<Subscription[]>('/api/subscriptions');
-      setSubscriptions((result as unknown as Subscription[]) || []);
+      const result = await api.get<SubscriptionsResponse>('/api/subscriptions');
+      // Backend wraps list in a paginated envelope; tolerate a bare list too.
+      const list = Array.isArray(result) ? result : Array.isArray(result?.data) ? result.data : [];
+      setSubscriptions(list);
       setError(null);
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to load subscriptions');
+      setError(getErrorMessage(err, 'Failed to load subscriptions'));
     } finally {
       setLoading(false);
     }
@@ -64,7 +76,7 @@ export function SubscriptionsPage() {
 
   const openEditDialog = (sub: Subscription) => {
     setEditingSub(sub);
-    setFormData({ name: sub.name, url: sub.url, enabled: sub.enabled });
+    setFormData({ name: sub.name, url: sub.url, enabled: sub.status === 'active' });
     setFormError('');
     setDialogOpen(true);
   };
@@ -78,18 +90,23 @@ export function SubscriptionsPage() {
       return;
     }
 
+    const payload = {
+      name: formData.name,
+      url: formData.url,
+      status: formData.enabled ? 'active' : 'inactive',
+    };
+
     setSubmitting(true);
     try {
       if (editingSub) {
-        await api.put(`/api/subscriptions/${editingSub.id}`, formData);
+        await api.put(`/api/subscriptions/${editingSub.id}`, payload);
       } else {
-        await api.post('/api/subscriptions', formData);
+        await api.post('/api/subscriptions', payload);
       }
       setDialogOpen(false);
       fetchSubscriptions();
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setFormError(error.message || 'Failed to save subscription');
+      setFormError(getErrorMessage(err, 'Failed to save subscription'));
     } finally {
       setSubmitting(false);
     }
@@ -101,8 +118,7 @@ export function SubscriptionsPage() {
       await api.delete(`/api/subscriptions/${id}`);
       fetchSubscriptions();
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to delete subscription');
+      setError(getErrorMessage(err, 'Failed to delete subscription'));
     }
   };
 
@@ -224,15 +240,21 @@ export function SubscriptionsPage() {
                     <TableCell className="text-muted-foreground max-w-[300px] truncate">{sub.url}</TableCell>
                     <TableCell>
                       <span
+                        title={sub.lastError || undefined}
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          sub.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          sub.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : sub.status === 'error'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
                         }`}
                       >
-                        {sub.enabled ? 'Enabled' : 'Disabled'}
+                        {(sub.status || 'inactive').charAt(0).toUpperCase() + (sub.status || 'inactive').slice(1)}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {sub.lastFetched ? new Date(sub.lastFetched).toLocaleString() : 'Never'}
+                      {sub.lastFetchedAt ? new Date(sub.lastFetchedAt).toLocaleString() : 'Never'}
+                      <span className="ml-2 text-xs">({sub.serverCount} servers)</span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

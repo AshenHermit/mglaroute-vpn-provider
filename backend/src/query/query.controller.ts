@@ -13,6 +13,11 @@ export class QueryController {
     return this.queryService.queryServers(dto);
   }
 
+  @Get('anycast')
+  async getAnycastList() {
+    return this.queryService.getAnycastList();
+  }
+
   @Get(':id/anycast')
   async getAnycastDetail(@Param('id') id: string) {
     return this.queryService.getAnycastDetail(id);

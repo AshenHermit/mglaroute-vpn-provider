@@ -71,3 +71,13 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
+
+/** Backend envelope `message` can be a string, string[] or nested validation object. */
+export function getErrorMessage(err: unknown, fallback: string): string {
+  if (!err) return fallback;
+  const error = err as { message?: unknown; response?: { data?: { message?: unknown } } };
+  const message = error.message ?? error.response?.data?.message;
+  if (typeof message === 'string') return message;
+  if (Array.isArray(message)) return message.map((item) => String(item)).join('; ');
+  return fallback;
+}

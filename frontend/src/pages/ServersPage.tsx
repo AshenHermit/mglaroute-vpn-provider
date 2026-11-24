@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { api, getErrorMessage } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -19,27 +19,33 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 
 interface Server {
   id: string;
-  profileId: string;
   name: string;
-  host: string;
+  address: string;
   port: number;
   protocol: string;
   latency: number | null;
   reachable: boolean | null;
-  anycastScore: number | null;
-  anycastSamples: number;
-  country: string | null;
-  region: string | null;
-  createdAt: string;
-  updatedAt: string;
+  anycastConfidence: number | null;
+  anycastSampleCount: number;
+  lastScannedAt: string | null;
 }
 
 interface ServersResponse {
-  data: Server[];
+  servers?: Server[];
+  data?: Server[];
   total: number;
   page: number;
-  pageSize: number;
+  limit?: number;
 }
+
+const SORT_COLUMNS: Record<string, string> = {
+  name: 'name',
+  host: 'address',
+  port: 'port',
+  protocol: 'protocol',
+  latency: 'latency',
+  anycastScore: 'confidence',
+};
 
 export function ServersPage() {
   const [servers, setServers] = useState<Server[]>([]);
@@ -53,7 +59,6 @@ export function ServersPage() {
     search: '',
     protocol: '',
     reachable: '',
-    country: '',
     sortBy: 'latency',
     sortOrder: 'asc' as 'asc' | 'desc',
   });
@@ -69,17 +74,21 @@ export function ServersPage() {
       if (filters.search) params.set('search', filters.search);
       if (filters.protocol) params.set('protocol', filters.protocol);
       if (filters.reachable) params.set('reachable', filters.reachable);
-      if (filters.country) params.set('country', filters.country);
-      params.set('sortBy', filters.sortBy);
-      params.set('sortOrder', filters.sortOrder);
+      const sortColumn = SORT_COLUMNS[filters.sortBy] || 'latency';
+      params.set('sort', `${sortColumn}_${filters.sortOrder}`);
 
-      const result = await api.get<ServersResponse>(`/api/servers?${params.toString()}`) as ServersResponse;
-      setServers(result.data || []);
-      setTotal(result.total || 0);
+      const result = await api.get<ServersResponse>(`/api/servers?${params.toString()}`);
+      const rows = Array.isArray(result?.servers) ? result.servers : Array.isArray(result?.data) ? result.data : [];
+      setServers(rows.map((server) => ({
+        ...server,
+        anycastConfidence: server.anycastConfidence === null || server.anycastConfidence === undefined
+          ? null
+          : Number(server.anycastConfidence),
+      })));
+      setTotal(result?.total || 0);
       setError(null);
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to load servers');
+      setError(getErrorMessage(err, 'Failed to load servers'));
     } finally {
       setLoading(false);
     }
@@ -87,7 +96,7 @@ export function ServersPage() {
 
   useEffect(() => {
     fetchServers();
-  }, [page, pageSize, filters.search, filters.protocol, filters.reachable, filters.country, filters.sortBy, filters.sortOrder]);
+  }, [page, pageSize, filters.search, filters.protocol, filters.reachable, filters.sortBy, filters.sortOrder]);
 
   const handleSort = (column: string) => {
     setFilters((prev) => ({
@@ -178,15 +187,6 @@ export function ServersPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
-              <Input
-                id="country"
-                placeholder="Country code (e.g., US)"
-                value={filters.country}
-                onChange={(e) => setFilters({ ...filters, country: e.target.value.toUpperCase() })}
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="pageSize">Page Size</Label>
               <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
                 <SelectTrigger id="pageSize">
@@ -216,7 +216,7 @@ export function ServersPage() {
                 </TableHead>
                 <TableHead className="cursor-pointer" onClick={() => handleSort('host')}>
                   <div className="flex items-center gap-1">
-                    Host <SortIcon column="host" />
+                    Address <SortIcon column="host" />
                   </div>
                 </TableHead>
                 <TableHead className="cursor-pointer" onClick={() => handleSort('port')}>
@@ -240,17 +240,12 @@ export function ServersPage() {
                     AnyCast <SortIcon column="anycastScore" />
                   </div>
                 </TableHead>
-                <TableHead className="cursor-pointer" onClick={() => handleSort('country')}>
-                  <div className="flex items-center gap-1">
-                    Country <SortIcon column="country" />
-                  </div>
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {servers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No servers found. Adjust filters or run a scan.
                   </TableCell>
                 </TableRow>
@@ -258,13 +253,13 @@ export function ServersPage() {
                 servers.map((server) => (
                   <TableRow key={server.id}>
                     <TableCell className="font-medium max-w-[200px] truncate">{server.name}</TableCell>
-                    <TableCell className="font-mono text-sm">{server.host}:{server.port}</TableCell>
+                    <TableCell className="font-mono text-sm">{server.address}:{server.port}</TableCell>
                     <TableCell className="font-mono text-sm">{server.port}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{server.protocol.toUpperCase()}</Badge>
+                      <Badge variant="secondary">{(server.protocol || '').toUpperCase()}</Badge>
                     </TableCell>
                     <TableCell className="font-mono">
-                      {server.latency !== null ? `${server.latency}ms` : '<span className="text-muted-foreground">-</span>'}
+                      {server.latency !== null && server.latency !== undefined ? `${server.latency}ms` : '-'}
                     </TableCell>
                     <TableCell>
                       {server.reachable === true ? (
@@ -276,16 +271,15 @@ export function ServersPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {server.anycastScore !== null ? (
+                      {server.anycastConfidence !== null && server.anycastConfidence !== undefined ? (
                         <div className="flex items-center gap-2">
-                          <span className="font-mono">{server.anycastScore.toFixed(2)}</span>
-                          <span className="text-xs text-muted-foreground">({server.anycastSamples} samples)</span>
+                          <span className="font-mono">{server.anycastConfidence.toFixed(2)}</span>
+                          <span className="text-xs text-muted-foreground">({server.anycastSampleCount} samples)</span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-uppercase">{server.country || '-'}</TableCell>
                   </TableRow>
                 ))
               )}

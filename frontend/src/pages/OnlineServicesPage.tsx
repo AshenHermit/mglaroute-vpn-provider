@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { api, getErrorMessage } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -19,8 +19,9 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 interface OnlineService {
   id: string;
   name: string;
-  urls: string[];
-  enabled: boolean;
+  testUrls: string[];
+  isEnabled: boolean;
+  isDefault: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,11 +41,10 @@ export function OnlineServicesPage() {
     try {
       setLoading(true);
       const result = await api.get<OnlineService[]>('/api/online-services');
-      setServices((result as unknown as OnlineService[]) || []);
+      setServices(Array.isArray(result) ? result : []);
       setError(null);
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to load online services');
+      setError(getErrorMessage(err, 'Failed to load online services'));
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,11 @@ export function OnlineServicesPage() {
 
   const openEditDialog = (service: OnlineService) => {
     setEditingService(service);
-    setFormData({ name: service.name, urls: service.urls.join('\n'), enabled: service.enabled });
+    setFormData({
+      name: service.name,
+      urls: (service.testUrls || []).join('\n'),
+      enabled: service.isEnabled,
+    });
     setFormError('');
     setDialogOpen(true);
   };
@@ -85,7 +89,7 @@ export function OnlineServicesPage() {
 
     setSubmitting(true);
     try {
-      const payload = { name: formData.name, urls, enabled: formData.enabled };
+      const payload = { name: formData.name, testUrls: urls, isEnabled: formData.enabled };
       if (editingService) {
         await api.put(`/api/online-services/${editingService.id}`, payload);
       } else {
@@ -94,8 +98,7 @@ export function OnlineServicesPage() {
       setDialogOpen(false);
       fetchServices();
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setFormError(error.message || 'Failed to save online service');
+      setFormError(getErrorMessage(err, 'Failed to save online service'));
     } finally {
       setSubmitting(false);
     }
@@ -107,8 +110,7 @@ export function OnlineServicesPage() {
       await api.delete(`/api/online-services/${id}`);
       fetchServices();
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to delete online service');
+      setError(getErrorMessage(err, 'Failed to delete online service'));
     }
   };
 
@@ -229,7 +231,7 @@ export function OnlineServicesPage() {
                     <TableCell className="font-medium">{service.name}</TableCell>
                     <TableCell className="text-muted-foreground max-w-[400px]">
                       <div className="flex flex-wrap gap-1">
-                        {service.urls.map((url, i) => (
+                        {(service.testUrls || []).map((url, i) => (
                           <span key={i} className="text-xs px-2 py-0.5 bg-muted rounded truncate max-w-[150px]">
                             {url}
                           </span>
@@ -239,10 +241,11 @@ export function OnlineServicesPage() {
                     <TableCell>
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          service.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          service.isEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                         }`}
                       >
-                        {service.enabled ? 'Enabled' : 'Disabled'}
+                        {service.isEnabled ? 'Enabled' : 'Disabled'}
+                        {service.isDefault && ' · Default'}
                       </span>
                     </TableCell>
                     <TableCell>
