@@ -63,7 +63,7 @@ Expected: PASS.
 
 - [ ] **Step 5: Implement `backend/scripts/download-xray.mjs`**
 
-ESM CLI: axios GET `https://api.github.com/repos/XTLS/Xray-core/releases/latest` (or `XRAY_VERSION` tag) with `Accept: application/vnd.github.v3+json`; select zip asset + its `.dgst` asset; download both as `arraybuffer`; `verifySha256`; `new AdmZip(zip)` extract to temp dir; copy `xray`/`xray.exe` to `backend/bin/`; `chmod 0o755`; spawn `xray -version` and print output. `XRAY_DOWNLOAD_URL` overrides the zip URL. Do NOT set `proxy:false` — download intentionally honors proxy env.
+ESM CLI: axios GET `https://api.github.com/repos/XTLS/Xray-core/releases/latest` (or `XRAY_VERSION` tag) with `Accept: application/vnd.github.v3+json`; select zip asset + its `.dgst` asset; download both as `arraybuffer` one at a time; `verifySha256`; `new AdmZip(zip)` extract to temp dir; copy `xray`/`xray.exe` to `backend/bin/`; `chmod 0o755`; spawn `xray -version` and print output. `XRAY_DOWNLOAD_URL` overrides the zip URL. Do NOT set `proxy:false` as the first attempt — download intentionally honors proxy env; on a transport error (no HTTP response) retry that request directly with `proxy:false`, since a local HTTP proxy may drop TLS tunnels.
 
 - [ ] **Step 6: Wire npm scripts, dependency, ignore and Docker**
 

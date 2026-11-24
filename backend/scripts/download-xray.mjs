@@ -6,6 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assetNamesFor, parseSha256, selectAsset, verifySha256 } from './xray-assets.mjs';
+import { downloadPair } from './download-pair.mjs';
+import { getWithFallback } from './http-get.mjs';
+
+const httpGet = (url, options) => axios.get(url, options);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '../..');
@@ -27,7 +31,7 @@ function syntheticRelease(tag) {
 }
 
 async function resolveFromRedirect() {
-  const response = await axios.get('https://github.com/XTLS/Xray-core/releases/latest', {
+  const response = await getWithFallback(httpGet, 'https://github.com/XTLS/Xray-core/releases/latest', {
     maxRedirects: 0,
     validateStatus: () => true,
     timeout: 60000,
@@ -44,7 +48,7 @@ async function resolveRelease() {
   const headers = { Accept: 'application/vnd.github.v3+json' };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   try {
-    const response = await axios.get(`${base}/latest`, { headers, timeout: 60000 });
+    const response = await getWithFallback(httpGet, `${base}/latest`, { headers, timeout: 60000 });
     return response.data;
   } catch (error) {
     if (error.response?.status === 403 || error.response?.status === 429) {
@@ -56,7 +60,7 @@ async function resolveRelease() {
 }
 
 async function downloadBuffer(url) {
-  const response = await axios.get(url, {
+  const response = await getWithFallback(httpGet, url, {
     responseType: 'arraybuffer',
     timeout: 120000,
     headers: { Accept: 'application/octet-stream' },
@@ -84,7 +88,7 @@ async function main() {
     if (dgstAsset) dgstUrl = dgstAsset.browser_download_url;
   }
 
-  const [zipBuffer, dgstBuffer] = await Promise.all([downloadBuffer(zipUrl), downloadBuffer(dgstUrl)]);
+  const [zipBuffer, dgstBuffer] = await downloadPair(downloadBuffer, zipUrl, dgstUrl);
   const expected = parseSha256(dgstBuffer.toString('utf8'));
   if (!verifySha256(zipBuffer, expected)) {
     throw new Error(`sha256 mismatch for ${asset.name}: expected ${expected}`);

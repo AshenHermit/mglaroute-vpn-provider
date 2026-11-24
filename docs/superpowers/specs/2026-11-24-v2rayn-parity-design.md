@@ -165,7 +165,8 @@ subscription `status=error`, `lastError=invalid input syntax for type inet: ""`,
 - `axios.get` in subscription fetch, stub fetch, reachability, and delay GET:
   explicit `proxy:false` (scan/network side) or explicit loopback `proxy` object
   (delay GET). Download script is the sole place that intentionally uses proxy
-  env.
+  env; it retries a request directly with `proxy:false` if the proxied TLS
+  tunnel drops, and downloads zip + digest sequentially.
 
 ### 7. Xray download script
 - `backend/scripts/download-xray.mjs`, run via
