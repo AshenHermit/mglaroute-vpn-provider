@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getErrorMessage } from '../lib/api';
+import { formatDateTime } from '../lib/format';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -253,7 +254,7 @@ export function SubscriptionsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {sub.lastFetchedAt ? new Date(sub.lastFetchedAt).toLocaleString() : 'Never'}
+                      {sub.lastFetchedAt ? formatDateTime(sub.lastFetchedAt) : 'Never'}
                       <span className="ml-2 text-xs">({sub.serverCount} servers)</span>
                     </TableCell>
                     <TableCell>

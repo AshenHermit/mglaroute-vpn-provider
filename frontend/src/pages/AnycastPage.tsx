@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getErrorMessage } from '../lib/api';
+import { formatDateTime } from '../lib/format';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
@@ -172,7 +173,7 @@ export function AnycastPage() {
                     </TableCell>
                     <TableCell className="font-mono">{entry.sampleCount}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {entry.lastUpdated ? new Date(entry.lastUpdated).toLocaleString() : '-'}
+                      {entry.lastUpdated ? formatDateTime(entry.lastUpdated) : '-'}
                     </TableCell>
                   </TableRow>
                 ))

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { formatDateTime } from '../lib/format';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Loader2, Database, Globe, Server, Activity, RefreshCw } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -102,7 +103,7 @@ export function DashboardPage() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            {stats?.lastScan ? new Date(stats.lastScan).toLocaleString() : 'No scans performed yet'}
+            {stats?.lastScan ? formatDateTime(stats.lastScan) : 'No scans performed yet'}
           </p>
         </CardContent>
       </Card>

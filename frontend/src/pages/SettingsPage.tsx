@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { formatDateTime } from '../lib/format';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -311,14 +312,14 @@ export function SettingsPage() {
             <div className="space-y-2">
               <Label>Last Scan</Label>
               <p className="text-muted-foreground font-mono text-sm">
-                {status?.lastScanAt ? new Date(status.lastScanAt).toLocaleString() : 'Never'}
+                {status?.lastScanAt ? formatDateTime(status.lastScanAt) : 'Never'}
               </p>
             </div>
 
             <div className="space-y-2">
               <Label>Next Scheduled Scan</Label>
               <p className="text-muted-foreground font-mono text-sm">
-                {status?.nextScanAt ? new Date(status.nextScanAt).toLocaleString() : 'Not scheduled'}
+                {status?.nextScanAt ? formatDateTime(status.nextScanAt) : 'Not scheduled'}
               </p>
             </div>
 
@@ -351,7 +352,7 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
           <p>Settings are stored as a singleton row (id=singleton) in the database.</p>
-          <p>Last updated: {settings?.updatedAt ? new Date(settings.updatedAt).toLocaleString() : 'Never'}</p>
+          <p>Last updated: {settings?.updatedAt ? formatDateTime(settings.updatedAt) : 'Never'}</p>
           <p className="font-mono">
             <strong>intervalSeconds:</strong> How often to run automatic scans (cron).<br />
             <strong>timeoutMs:</strong> Maximum time to wait for a single server check.<br />
