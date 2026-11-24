@@ -45,6 +45,13 @@ export class QueryService {
       qb.andWhere('profile.lastReachable = :reachable', { reachable: dto.reachable });
     }
 
+    // Service filter: every requested service id must be reachable on the server
+    if (dto.services?.length) {
+      qb.andWhere('profile.serviceIds @> :serviceIds::jsonb', {
+        serviceIds: JSON.stringify(dto.services),
+      });
+    }
+
     // Anycast filter
     if (dto.anycast !== undefined) {
       if (dto.anycast === true) {
@@ -113,6 +120,8 @@ export class QueryService {
       anycastConfidence: p.anycastScore,
       anycastSampleCount: p.anycastSamples,
       lastScannedAt: p.lastScannedAt,
+      services: p.serviceIds ?? [],
+      servicesCheckedAt: p.servicesCheckedAt ? p.servicesCheckedAt.toISOString() : null,
     }));
 
     return {
