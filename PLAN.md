@@ -43,22 +43,32 @@ frontend/
 |---|---|
 | `admin` | id, password_hash, created_at, is_setup (first-run gate) |
 | `subscriptions` | mirrors v2rayN `SubItem`: id, remarks, url, more_url, enabled, user_agent, request_headers, filter, auto_update_interval, update_time, convert_target, memo, sort, pre_socks_port, custom_core_type |
-| `profiles` | mirrors v2rayN `ProfileItem`: id, sub_id, config_type, address, port, password, username, network, flow, remarks, last_latency, last_seen, reachable, services jsonb, resolved_ips jsonb |
+| `profiles` | mirrors v2rayN `ProfileItem`: id, sub_id, config_type, address, port, password, username, network, flow, remarks, last_latency, last_seen, reachable, resolved_ips jsonb; plus `serviceIds jsonb` (reachable service IDs only, never names), `servicesCheckedAt timestamp`, `servicesFingerprint varchar` |
 | `online_service_profiles` | id, name, urls jsonb, enabled, is_default |
-| `scanner_settings` | singleton: scan_interval, concurrency, connect_timeout, service_timeout, anycast_min_samples, anycast_threshold |
+| `scanner_settings` | singleton: scan_interval, concurrency, connect_timeout, service_timeout, service_check_expiration_seconds (default 3600), anycast_min_samples, anycast_threshold |
 | `scan_results` | id, profile_id, latency_ms, services jsonb {url:bool}, resolved_ips jsonb, scanned_at |
 | `anycast_scores` | profile_id, confidence (0..1), sample_count, unique_ip_count, updated_at |
 
 ## Scanner flow (cron, Node cron or BullMQ)
 
 1. enabled subscriptions → fetch URL (UA + headers) → parse profiles
-2. per profile: TCP connect to address:port, measure latency (concurrency cap,
-   connect timeout)
-3. reachable → for each enabled online service URL: HTTP GET (service timeout),
-   record reachable bool
+2. per profile: when the local xray binary exists, start one xray core and keep
+   it for the whole probe; measure delay through its loopback proxy in the same
+   session. Otherwise use the legacy TCP connect to address:port (no service
+   check in that path).
+3. after a successful xray delay (`latency !== null`) and only when the cached
+   result is due — `servicesCheckedAt` null, fingerprint of the enabled-service
+   set (ids + sorted URLs) changed, or elapsed >= `service_check_expiration_seconds`
+   — GET every enabled service URL through that same proxy. A service counts as
+   reachable only when ALL its test URLs return 2xx (403/404/5xx fail; empty URL
+   list never reachable). Store only reachable service IDs plus timestamp and
+   fingerprint. No OS-proxy fallback. On xray/session failure keep the previous
+   result and retry next scan; a later unreachable scan does not clear it.
 4. resolve DNS of profile address → record resolved IP
-5. upsert `scan_results`, update `profiles` (last_latency, last_seen, services,
-   resolved_ips), recompute anycast score
+5. upsert `scan_results`, update `profiles` (last_latency, last_seen,
+   serviceIds/servicesCheckedAt/servicesFingerprint, resolved_ips), recompute
+   anycast score. `scan_history` keeps one row per scanned profile/service URL
+   so anycast sample counts are unchanged.
 
 Anycast score: `confidence = 1 - (uniqueResolvedIps / sampleCount)`, clamped
 [0,1]. Only valid when `sampleCount >= anycast_min_samples`.

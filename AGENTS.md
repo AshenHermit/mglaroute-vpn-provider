@@ -18,7 +18,7 @@ Spec: `PLAN.md`. Task-by-task plan: `docs/superpowers/plans/2026-11-23-mglaroute
 - `subscriptions/` — subscription CRUD; `POST /:id/fetch` is partial (see gaps)
 - `profiles/` — parsed server profiles; list, `/:id`, `/subscription/:subscriptionId`
 - `online-services/` — named service profiles (test URLs) CRUD + `/enabled`
-- `scanner/` — parser, TCP latency, DNS resolve, HTTP reachability, anycast score, `ScanHistory`, cron
+- `scanner/` — parser, xray delay + service check through the same proxy session, DNS resolve, anycast score, `ScanHistory`, cron
 - `query/` — filtered/sorted/paginated server query + anycast endpoints; only unit spec here (`query.service.spec.ts`)
 - `settings/` — `scanner_settings` singleton (`id='singleton'`)
 - `health/` — `GET /api/health`
@@ -42,7 +42,7 @@ Public: `GET /api/health`, `GET /api/auth/first-run`, `POST /api/auth/setup`, `P
 - Online services: `GET|POST /api/online-services`, `GET /api/online-services/enabled`, `GET|PUT|DELETE /api/online-services/:id`
 - Settings: `GET|PUT /api/settings`
 - Scanner: `POST /api/scanner/run`, `GET /api/scanner/status`
-- Servers: `GET /api/servers` (`services[]`, `anycast`, `limit`, `page`, `sort`, `search`, `protocol`, `reachable`), `GET /api/servers/anycast`, `GET /api/servers/:id/anycast`
+- Servers: `GET /api/servers` (`services[]` = all requested service IDs reachable, `anycast`, `limit`, `page`, `sort`, `search`, `protocol`, `reachable`), `GET /api/servers/anycast`, `GET /api/servers/:id/anycast`. Rows carry `services: string[]` (reachable IDs, names stay editable in `online_services`) and `servicesCheckedAt`
 - Swagger UI: `/api/docs`
 
 ## Data / invariants
@@ -53,6 +53,7 @@ Public: `GET /api/health`, `GET /api/auth/first-run`, `POST /api/auth/setup`, `P
 - Region/country detection intentionally OUT (see `PLAN.md`).
 - First run: `GET /api/auth/first-run` drives `/setup`; setup blocked once an admin exists.
 - Scanner: cron `EVERY_5_MINUTES` + manual trigger; `running` flag prevents overlapping runs. Fetch failures set subscription status `error`, preserve previously parsed profiles.
+- Service check: `profiles` has `serviceIds jsonb` (reachable IDs only), `servicesCheckedAt timestamp`, `servicesFingerprint varchar`. `scanner_settings.serviceCheckExpirationSeconds` (default 3600) gates rechecks. Due when timestamp null, fingerprint differs (enabled-service set or any URL changed), or elapsed >= expiration. A service is reachable only when **all** its test URLs return 2xx through the xray proxy; empty URL list is never reachable. Check runs only after a successful xray delay probe in the same proxy session; on TCP fallback / xray failure the stored list is kept untouched. No OS-proxy fallback (`proxy: false`) for service requests.
 
 ## Env / ports
 - Root `.env.example`; `backend/.env` and `frontend/.env` exist locally (gitignored). Backend `PORT=3000`; Vite dev `5173`; prod nginx `80`; Caddy `${CADDY_PORT:-8080}`.
