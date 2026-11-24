@@ -26,6 +26,12 @@ export class ScannerSettings {
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 0.5 })
   anycastThreshold: number;
 
+  @Column({ default: true })
+  enabled: boolean;
+
+  @Column({ default: 5000 })
+  latencyThresholdMs: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

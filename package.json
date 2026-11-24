@@ -7,7 +7,8 @@
   "scripts": {
     "frontend:dev": "pnpm --filter mglaroute-vpn-server-frontend dev",
     "backend:dev": "pnpm --filter mglaroute-vpn-server-backend start:dev",
-    "dev": "node scripts/dev.mjs"
+    "dev": "node scripts/dev.mjs",
+    "xray:download": "pnpm --filter mglaroute-vpn-server-backend xray:download"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

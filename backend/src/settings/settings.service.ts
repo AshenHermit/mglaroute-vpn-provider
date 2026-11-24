@@ -21,6 +21,8 @@ export class SettingsService implements OnModuleInit {
         timeoutMs: 5000,
         anycastMinSamples: 3,
         anycastThreshold: 0.5,
+        enabled: true,
+        latencyThresholdMs: 5000,
       });
       await this.settingsRepository.save(defaults);
     }

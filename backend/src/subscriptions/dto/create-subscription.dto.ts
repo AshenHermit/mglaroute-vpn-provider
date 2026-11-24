@@ -1,4 +1,4 @@
-import { IsString, IsUrl, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsUrl, IsOptional, IsEnum, IsBoolean, IsInt, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SubscriptionStatus } from '../subscription.entity';
 
@@ -15,4 +15,15 @@ export class CreateSubscriptionDto {
   @IsOptional()
   @IsEnum(SubscriptionStatus)
   status?: SubscriptionStatus;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({ default: 0, description: '0 disables per-subscription auto-update' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  autoUpdateIntervalMinutes?: number;
 }

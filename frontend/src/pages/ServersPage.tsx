@@ -20,6 +20,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 interface Server {
   id: string;
   name: string;
+  remarks: string | null;
   address: string;
   port: number;
   protocol: string;
@@ -152,7 +153,7 @@ export function ServersPage() {
               <Label htmlFor="search">Search</Label>
               <Input
                 id="search"
-                placeholder="Search by name, host..."
+                placeholder="Search by remarks, name, host..."
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
               />
@@ -252,7 +253,12 @@ export function ServersPage() {
               ) : (
                 servers.map((server) => (
                   <TableRow key={server.id}>
-                    <TableCell className="font-medium max-w-[200px] truncate">{server.name}</TableCell>
+                    <TableCell className="font-medium max-w-[200px] truncate" title={server.remarks || server.name}>
+                      <div className="truncate">{server.remarks || server.name}</div>
+                      {server.remarks && (
+                        <div className="text-xs font-normal text-muted-foreground truncate">{server.name}</div>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-sm">{server.address}:{server.port}</TableCell>
                     <TableCell className="font-mono text-sm">{server.port}</TableCell>
                     <TableCell>

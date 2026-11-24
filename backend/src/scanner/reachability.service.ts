@@ -8,7 +8,7 @@ export class ReachabilityService {
     await Promise.all(
       urls.map(async (url) => {
         try {
-          await axios.get(url, { timeout: timeoutMs, validateStatus: () => true });
+          await axios.get(url, { timeout: timeoutMs, proxy: false, validateStatus: () => true });
           results[url] = true;
         } catch {
           results[url] = false;

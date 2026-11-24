@@ -6,6 +6,7 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci
 COPY backend/ ./
+RUN npm run xray:download
 RUN npm run build
 
 # Stage 2: Frontend build
@@ -25,6 +26,7 @@ ENV NODE_ENV=production
 COPY --from=backend-builder /app/backend/dist ./backend/dist
 COPY --from=backend-builder /app/backend/node_modules ./backend/node_modules
 COPY --from=backend-builder /app/backend/package.json ./backend/package.json
+COPY --from=backend-builder /app/backend/bin ./backend/bin
 EXPOSE 3000
 CMD ["node", "backend/dist/main.js"]
 

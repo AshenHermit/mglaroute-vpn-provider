@@ -11,6 +11,7 @@ import { ReachabilityService } from './reachability.service';
 import { AnycastService } from './anycast.service';
 import { ScannerService } from './scanner.service';
 import { CronService } from './cron.service';
+import { XrayDelayService } from './xray-delay.service';
 import { ScannerController } from './scanner.controller';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { ProfilesModule } from '../profiles/profiles.module';
@@ -35,6 +36,7 @@ import { HttpModule } from '../common/http/http.module';
     AnycastService,
     ScannerService,
     CronService,
+    XrayDelayService,
   ],
   exports: [ScannerService, ParserService],
 })

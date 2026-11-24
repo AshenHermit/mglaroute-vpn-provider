@@ -6,10 +6,15 @@ import { Button } from '../components/ui/button';
 
 interface DashboardStats {
   totalSubscriptions: number;
-  totalProfiles: number;
   totalServers: number;
   lastScan: string | null;
+  failedScans: number;
   anycastCount: number;
+}
+
+interface ScannerStatus {
+  lastScanAt: string | null;
+  lastScanResult: { profilesScanned: number; succeeded: number; failed: number } | null;
 }
 
 export function DashboardPage() {
@@ -22,38 +27,34 @@ export function DashboardPage() {
       setLoading(true);
       const [subs, servers, scannerStatus] = await Promise.all([
         api.get<{ data: unknown[] }>('/api/subscriptions'),
-        api.get<{ data: unknown[] }>('/api/servers?limit=1'),
-        api.get<{ lastRun: string | null }>('/api/scanner/status'),
+        api.get<{ total: number }>('/api/servers?limit=1'),
+        api.get<ScannerStatus>('/api/scanner/status'),
       ]);
 
-      const subsData = subs as unknown as { data: unknown[] };
-      const serversData = servers as unknown as { data: unknown[] };
-      const scannerData = scannerStatus as unknown as { lastRun: string | null };
-
       setStats({
-        totalSubscriptions: subsData.data?.length || 0,
-        totalProfiles: 0,
-        totalServers: serversData.data?.length || 0,
-        lastScan: scannerData.lastRun,
+        totalSubscriptions: subs?.data?.length || 0,
+        totalServers: servers?.total || 0,
+        lastScan: scannerStatus?.lastScanAt || null,
+        failedScans: scannerStatus?.lastScanResult?.failed || 0,
         anycastCount: 0,
       });
       setError(null);
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to load dashboard');
+      const e = err as { message?: string };
+      setError(e.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStats();
+    void fetchStats();
   }, []);
 
   const statCards = [
     { title: 'Subscriptions', value: stats?.totalSubscriptions || 0, icon: Database, color: 'text-blue-500' },
-    { title: 'Online Services', value: stats?.totalProfiles || 0, icon: Globe, color: 'text-green-500' },
     { title: 'Servers', value: stats?.totalServers || 0, icon: Server, color: 'text-purple-500' },
+    { title: 'Failed Scans', value: stats?.failedScans || 0, icon: Globe, color: 'text-red-500' },
     { title: 'AnyCast Servers', value: stats?.anycastCount || 0, icon: Activity, color: 'text-orange-500' },
   ];
 

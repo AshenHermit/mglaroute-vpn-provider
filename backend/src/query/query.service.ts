@@ -25,10 +25,14 @@ export class QueryService {
     const threshold = settings?.anycastThreshold || 0.5;
 
     const qb = this.profileRepository.createQueryBuilder('profile');
+    qb.andWhere('profile.present = :present', { present: true });
 
     // Search filter
     if (dto.search) {
-      qb.andWhere('profile.address ILIKE :search', { search: `%${dto.search}%` });
+      qb.andWhere(
+        '(profile.remarks ILIKE :search OR profile.name ILIKE :search OR profile.address ILIKE :search)',
+        { search: `%${dto.search}%` },
+      );
     }
 
     // Protocol filter
@@ -103,6 +107,7 @@ export class QueryService {
       port: p.port,
       protocol: p.protocol,
       name: p.name,
+      remarks: p.remarks,
       latency: p.lastLatencyMs,
       reachable: p.lastReachable,
       anycastConfidence: p.anycastScore,
@@ -120,7 +125,7 @@ export class QueryService {
 
   async getAnycastList() {
     const profiles = await this.profileRepository.find({
-      where: { anycastScore: Not(IsNull()) },
+      where: { anycastScore: Not(IsNull()), present: true },
       order: { anycastScore: 'DESC' },
     });
 

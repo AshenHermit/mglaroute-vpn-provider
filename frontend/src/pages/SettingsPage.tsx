@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -9,21 +9,39 @@ import { Loader2, RefreshCw, Play, Save } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
 interface ScannerSettings {
-  id: number;
-  scanIntervalMinutes: number;
-  scanTimeoutSeconds: number;
-  scanConcurrency: number;
+  id: string;
+  intervalSeconds: number;
+  timeoutMs: number;
+  concurrency: number;
   latencyThresholdMs: number;
   anycastMinSamples: number;
+  anycastThreshold: number | string;
   enabled: boolean;
   updatedAt: string;
 }
 
+interface ScanResult {
+  profilesScanned: number;
+  succeeded: number;
+  failed: number;
+}
+
 interface ScannerStatus {
   running: boolean;
-  lastRun: string | null;
-  nextRun: string | null;
+  lastScanAt: string | null;
+  nextScanAt: string | null;
+  lastScanResult: ScanResult | null;
 }
+
+type SettingsForm = {
+  intervalSeconds: number;
+  timeoutMs: number;
+  concurrency: number;
+  latencyThresholdMs: number;
+  anycastMinSamples: number;
+  anycastThreshold: number;
+  enabled: boolean;
+};
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<ScannerSettings | null>(null);
@@ -34,46 +52,62 @@ export function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
-    scanIntervalMinutes: 60,
-    scanTimeoutSeconds: 30,
-    scanConcurrency: 10,
+  const [formData, setFormData] = useState<SettingsForm>({
+    intervalSeconds: 300,
+    timeoutMs: 5000,
+    concurrency: 10,
     latencyThresholdMs: 5000,
-    anycastMinSamples: 5,
+    anycastMinSamples: 3,
+    anycastThreshold: 0.5,
     enabled: true,
   });
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const data = await api.get<ScannerStatus>('/api/scanner/status');
+      setStatus(data);
+      if (!data.running) setScanning(false);
+    } catch {
+      // Status polling is best-effort; keep the last known state.
+    }
+  }, []);
 
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const [settingsRes, statusRes] = await Promise.all([
+      const [settingsData, statusData] = await Promise.all([
         api.get<ScannerSettings>('/api/settings'),
         api.get<ScannerStatus>('/api/scanner/status'),
       ]);
-      const settingsData = settingsRes as unknown as ScannerSettings;
-      const statusData = statusRes as unknown as ScannerStatus;
       setSettings(settingsData);
       setStatus(statusData);
       setFormData({
-        scanIntervalMinutes: settingsData.scanIntervalMinutes,
-        scanTimeoutSeconds: settingsData.scanTimeoutSeconds,
-        scanConcurrency: settingsData.scanConcurrency,
+        intervalSeconds: settingsData.intervalSeconds,
+        timeoutMs: settingsData.timeoutMs,
+        concurrency: settingsData.concurrency,
         latencyThresholdMs: settingsData.latencyThresholdMs,
         anycastMinSamples: settingsData.anycastMinSamples,
+        anycastThreshold: Number(settingsData.anycastThreshold),
         enabled: settingsData.enabled,
       });
       setError(null);
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to load settings');
+      const e = err as { message?: string };
+      setError(e.message || 'Failed to load settings');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSettings();
+    void fetchSettings();
   }, []);
+
+  useEffect(() => {
+    if (!status?.running) return;
+    const timer = window.setInterval(() => { void fetchStatus(); }, 2000);
+    return () => window.clearInterval(timer);
+  }, [status?.running, fetchStatus]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,10 +117,10 @@ export function SettingsPage() {
     try {
       await api.put('/api/settings', formData);
       setSuccess('Settings saved successfully');
-      fetchSettings();
+      await fetchSettings();
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to save settings');
+      const e = err as { message?: string };
+      setError(e.message || 'Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -98,11 +132,10 @@ export function SettingsPage() {
     try {
       await api.post('/api/scanner/run');
       setSuccess('Scan started');
-      fetchSettings();
+      await fetchStatus();
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      setError(error.message || 'Failed to start scan');
-    } finally {
+      const e = err as { message?: string };
+      setError(e.message || 'Failed to start scan');
       setScanning(false);
     }
   };
@@ -140,40 +173,40 @@ export function SettingsPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="scanIntervalMinutes">Scan Interval (minutes)</Label>
+                <Label htmlFor="intervalSeconds">Scan Interval (seconds)</Label>
                 <Input
-                  id="scanIntervalMinutes"
+                  id="intervalSeconds"
                   type="number"
-                  min="1"
-                  max="1440"
-                  value={formData.scanIntervalMinutes}
-                  onChange={(e) => setFormData({ ...formData, scanIntervalMinutes: Number(e.target.value) })}
+                  min="60"
+                  max="86400"
+                  value={formData.intervalSeconds}
+                  onChange={(e) => setFormData({ ...formData, intervalSeconds: Number(e.target.value) })}
                   disabled={saving}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="scanTimeoutSeconds">Scan Timeout (seconds)</Label>
+                <Label htmlFor="timeoutMs">Scan Timeout (ms)</Label>
                 <Input
-                  id="scanTimeoutSeconds"
+                  id="timeoutMs"
                   type="number"
-                  min="5"
-                  max="300"
-                  value={formData.scanTimeoutSeconds}
-                  onChange={(e) => setFormData({ ...formData, scanTimeoutSeconds: Number(e.target.value) })}
+                  min="1000"
+                  max="300000"
+                  value={formData.timeoutMs}
+                  onChange={(e) => setFormData({ ...formData, timeoutMs: Number(e.target.value) })}
                   disabled={saving}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="scanConcurrency">Concurrency</Label>
+                <Label htmlFor="concurrency">Concurrency</Label>
                 <Input
-                  id="scanConcurrency"
+                  id="concurrency"
                   type="number"
                   min="1"
                   max="100"
-                  value={formData.scanConcurrency}
-                  onChange={(e) => setFormData({ ...formData, scanConcurrency: Number(e.target.value) })}
+                  value={formData.concurrency}
+                  onChange={(e) => setFormData({ ...formData, concurrency: Number(e.target.value) })}
                   disabled={saving}
                 />
               </div>
@@ -200,6 +233,20 @@ export function SettingsPage() {
                   max="100"
                   value={formData.anycastMinSamples}
                   onChange={(e) => setFormData({ ...formData, anycastMinSamples: Number(e.target.value) })}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="anycastThreshold">AnyCast Threshold</Label>
+                <Input
+                  id="anycastThreshold"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={formData.anycastThreshold}
+                  onChange={(e) => setFormData({ ...formData, anycastThreshold: Number(e.target.value) })}
                   disabled={saving}
                 />
               </div>
@@ -242,22 +289,31 @@ export function SettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Last Run</Label>
+              <Label>Last Scan</Label>
               <p className="text-muted-foreground font-mono text-sm">
-                {status?.lastRun ? new Date(status.lastRun).toLocaleString() : 'Never'}
+                {status?.lastScanAt ? new Date(status.lastScanAt).toLocaleString() : 'Never'}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Next Scheduled Run</Label>
+              <Label>Next Scheduled Scan</Label>
               <p className="text-muted-foreground font-mono text-sm">
-                {status?.nextRun ? new Date(status.nextRun).toLocaleString() : 'Not scheduled'}
+                {status?.nextScanAt ? new Date(status.nextScanAt).toLocaleString() : 'Not scheduled'}
               </p>
             </div>
 
+            <div className="space-y-2 border-t pt-4">
+              <Label>Last Scan Result</Label>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <span>Scanned: <strong>{status?.lastScanResult?.profilesScanned ?? 0}</strong></span>
+                <span>Succeeded: <strong>{status?.lastScanResult?.succeeded ?? 0}</strong></span>
+                <span>Failed: <strong>{status?.lastScanResult?.failed ?? 0}</strong></span>
+              </div>
+            </div>
+
             <div className="pt-4 border-t">
-              <Button onClick={handleRunScan} disabled={scanning || status?.running}>
-                {scanning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button onClick={handleRunScan} disabled={saving || scanning || status?.running}>
+                {(scanning || status?.running) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Play className="mr-2 h-4 w-4" />
                 Run Scan Now
               </Button>
@@ -274,14 +330,15 @@ export function SettingsPage() {
           <CardTitle>Settings Information</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>Settings are stored as a singleton row (id=1) in the database.</p>
+          <p>Settings are stored as a singleton row (id=singleton) in the database.</p>
           <p>Last updated: {settings?.updatedAt ? new Date(settings.updatedAt).toLocaleString() : 'Never'}</p>
           <p className="font-mono">
-            <strong>scanIntervalMinutes:</strong> How often to run automatic scans (cron).<br />
-            <strong>scanTimeoutSeconds:</strong> Maximum time to wait for a single server check.<br />
-            <strong>scanConcurrency:</strong> Number of servers to check in parallel.<br />
+            <strong>intervalSeconds:</strong> How often to run automatic scans (cron).<br />
+            <strong>timeoutMs:</strong> Maximum time to wait for a single server check.<br />
+            <strong>concurrency:</strong> Number of servers to check in parallel.<br />
             <strong>latencyThresholdMs:</strong> Servers above this latency are considered slow.<br />
             <strong>anycastMinSamples:</strong> Minimum samples required before calculating AnyCast confidence score.<br />
+            <strong>anycastThreshold:</strong> Confidence threshold for flagging an AnyCast server.<br />
             <strong>enabled:</strong> Enable/disable automatic scanning.
           </p>
         </CardContent>

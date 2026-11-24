@@ -32,3 +32,9 @@ coverage/
 
 # Docker
 docker-compose.override.yml
+
+# Downloaded xray binary
+backend/bin/
+
+# Superpowers working scratch (contains DB backup)
+.superpowers/

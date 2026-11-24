@@ -39,6 +39,12 @@ export class Subscription {
   @Column({ default: 0 })
   serverCount: number;
 
+  @Column({ default: true })
+  enabled: boolean;
+
+  @Column({ default: 0 })
+  autoUpdateIntervalMinutes: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -36,6 +36,9 @@ export class Profile {
   @Column()
   name: string;
 
+  @Column({ type: 'text', nullable: true })
+  remarks: string | null;
+
   @Column({ type: 'enum', enum: Protocol })
   protocol: Protocol;
 
@@ -95,6 +98,9 @@ export class Profile {
 
   @Column({ default: 0 })
   anycastSamples: number;
+
+  @Column({ default: true })
+  present: boolean;
 
   @Column({ nullable: true })
   lastScannedAt: Date;
