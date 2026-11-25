@@ -113,8 +113,8 @@ services:
       COMMON_DOMAIN: ${COMMON_DOMAIN:-ashen-hermit.space}
       PANEL_SUBDOMAIN: ${PANEL_SUBDOMAIN:-admin.mglaroute}
       BACKEND_SUBDOMAIN: ${BACKEND_SUBDOMAIN:-api.mglaroute}
-      BACKEND_HOST: ${BACKEND_HOST:-backend}
-      FRONTEND_HOST: ${FRONTEND_HOST:-frontend}
+      BACKEND_HOST: ${BACKEND_HOST:-mglaroute-backend-prod}
+      FRONTEND_HOST: ${FRONTEND_HOST:-mglaroute-frontend-prod}
       BACKEND_PORT: ${BACKEND_PORT:-3000}
       FRONTEND_PORT: ${FRONTEND_PORT:-80}
     command: >
