@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, getErrorMessage } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -75,7 +75,7 @@ export function ServersPage() {
 
   const protocols = ['vless', 'vmess', 'trojan', 'shadowsocks', 'ss', 'wireguard', 'openvpn'];
 
-  const fetchServers = async () => {
+  const fetchServers = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -103,7 +103,7 @@ export function ServersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, filters.search, filters.protocol, filters.reachable, filters.service, filters.sortBy, filters.sortOrder]);
 
   useEffect(() => {
     const fetchEnabledServices = async () => {
@@ -120,8 +120,8 @@ export function ServersPage() {
   const serviceNames = new Map(enabledServices.map((service) => [service.id, service.name]));
 
   useEffect(() => {
-    fetchServers();
-  }, [page, pageSize, filters.search, filters.protocol, filters.reachable, filters.service, filters.sortBy, filters.sortOrder]);
+    void fetchServers();
+  }, [fetchServers]);
 
   const handleSort = (column: string) => {
     setFilters((prev) => ({

@@ -50,6 +50,9 @@ describe('XrayDelayService', () => {
   let nowSpy: jest.SpyInstance;
 
   beforeEach(() => {
+    // Tests mock spawn; the binary only needs to exist on disk for binaryPath().
+    // CI runners have no downloaded xray, so point at the node executable.
+    process.env.XRAY_BINARY_PATH = process.execPath;
     service = new XrayDelayService();
     kill = jest.fn();
     spawnSpy = jest.spyOn(childProcess, 'spawn').mockImplementation(() => {
@@ -78,6 +81,7 @@ describe('XrayDelayService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    delete process.env.XRAY_BINARY_PATH;
     delete process.env.XRAY_STARTUP_TIMEOUT_MS;
   });
 
