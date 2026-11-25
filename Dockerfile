@@ -3,6 +3,9 @@
 # Stage 1: shared build (pnpm workspace; npm ci has no package-lock.json here)
 FROM node:20-alpine AS builder
 WORKDIR /app
+# Vite inlines VITE_API_URL at build time; compose passes this build arg.
+ARG VITE_API_URL=https://api.mglaroute.ashen-hermit.space
+ENV VITE_API_URL=$VITE_API_URL
 RUN apk add --no-cache python3 make g++ \
  && npm install -g pnpm@10.12.1
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./

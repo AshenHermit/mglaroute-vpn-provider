@@ -48,7 +48,10 @@ jobs:
           test -f backend/dist/main.js
 
       - name: Сборка и типы фронтенда
-        run: pnpm --filter mglaroute-vpn-server-frontend build
+        run: |
+          set -euo pipefail
+          VITE_API_URL=https://api.example.test pnpm --filter mglaroute-vpn-server-frontend build
+          grep -RqF 'https://api.example.test' frontend/dist/assets
 
       - name: Линтер фронтенда
         run: pnpm --filter mglaroute-vpn-server-frontend lint

@@ -49,7 +49,7 @@ Public: `GET /api/health`, `GET /api/auth/first-run`, `POST /api/auth/setup`, `P
 
 ## Data / invariants
 - Tables/entities: `users`, `subscriptions`, `profiles`, `online_services`, `scanner_settings`, `scan_history`, `anycast_scores`.
-- Schema via TypeORM `synchronize` (`DB_SYNCHRONIZE=true` dev, `false` prod). Migration scripts exist in `backend/package.json` but no migration files yet — don't assume migrations work.
+- Schema via TypeORM `synchronize` (`DB_SYNCHRONIZE=true` dev and prod). Migration scripts exist in `backend/package.json` but no migration files yet — don't assume migrations work. Prod compose defaults `DB_SYNCHRONIZE=true` so tables auto-create on backend boot.
 - Parser accepts `vmess://` (base64 JSON), `vless://`, `ss://` (base64 and method:pass forms), `trojan://`, and base64-encoded clash-style YAML; bad lines skipped and counted, never abort whole parse.
 - Anycast = availability score 0..1 over the last 10 fresh service checks: `losses / window.length` (`profiles.anycastWindow jsonb boolean[]`). Regex `/anycast|auto/i` in `remarks`/`name` → `1.0`; `servicesFingerprint` change clears the window. `null` only for legacy/unscanned rows. Never a boolean.
 - `anycast_scores` is informational only — a `(profileId, resolvedIp)` lookup for the public feed's `resolvedIp`. `anycastMinSamples` stays in API/DB for compatibility but is unused; `anycastThreshold` stays default `0.5`, editable in `/settings`.
