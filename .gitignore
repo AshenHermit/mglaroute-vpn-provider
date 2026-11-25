@@ -38,3 +38,6 @@ backend/bin/
 
 # Superpowers working scratch (contains DB backup)
 .superpowers/
+
+# Code indexer lease/runtime files (recreated constantly)
+.opencode/
