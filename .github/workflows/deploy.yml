@@ -41,6 +41,12 @@ jobs:
       - name: Тесты xray-утилит
         run: pnpm --filter mglaroute-vpn-server-backend test:xray
 
+      - name: Сборка бэкенда
+        run: |
+          set -euo pipefail
+          pnpm --filter mglaroute-vpn-server-backend build
+          test -f backend/dist/main.js
+
       - name: Сборка и типы фронтенда
         run: pnpm --filter mglaroute-vpn-server-frontend build
 
