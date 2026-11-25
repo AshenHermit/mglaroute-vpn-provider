@@ -59,18 +59,23 @@ export function LoginPage() {
               <Label htmlFor="username">Username</Label>
               <Input
                 id="username"
+                name="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="admin"
                 autoComplete="username"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
                 disabled={loading}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="current-password">Password</Label>
               <Input
-                id="password"
+                id="current-password"
+                name="current-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
