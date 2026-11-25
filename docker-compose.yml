@@ -5,15 +5,15 @@ services:
     image: postgres:16-alpine
     container_name: mglaroute-postgres
     environment:
-      POSTGRES_DB: mglaroute
-      POSTGRES_USER: mglaroute
-      POSTGRES_PASSWORD: mglaroute
+      POSTGRES_DB: ${DB_NAME:-mglaroute}
+      POSTGRES_USER: ${DB_USER:-mglaroute}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mglaroute}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mglaroute -d mglaroute"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mglaroute} -d ${DB_NAME:-mglaroute}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,12 +23,15 @@ services:
   redis:
     image: redis:7-alpine
     container_name: mglaroute-redis
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5

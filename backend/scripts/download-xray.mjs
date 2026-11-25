@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assetNamesFor, parseSha256, selectAsset, verifySha256 } from './xray-assets.mjs';
+import { XRAY_VERSION, parseSha256, pinnedRelease, selectAsset, verifySha256 } from './xray-assets.mjs';
 import { downloadPair } from './download-pair.mjs';
 import { getWithFallback } from './http-get.mjs';
 
@@ -21,42 +21,8 @@ function binaryPath() {
   return process.env.XRAY_BINARY_PATH || path.join(REPO_ROOT, 'backend', 'bin', name);
 }
 
-function syntheticRelease(tag) {
-  const base = `https://github.com/XTLS/Xray-core/releases/download/${tag}`;
-  const assets = assetNamesFor(PLATFORM, ARCH).map((name) => ({
-    name,
-    browser_download_url: `${base}/${name}`,
-  }));
-  return { tag_name: tag, assets };
-}
-
-async function resolveFromRedirect() {
-  const response = await getWithFallback(httpGet, 'https://github.com/XTLS/Xray-core/releases/latest', {
-    maxRedirects: 0,
-    validateStatus: () => true,
-    timeout: 60000,
-  });
-  const location = response.headers.location;
-  const match = location && location.match(/\/tag\/([^/?#]+)/);
-  if (!match) throw new Error(`Cannot resolve latest xray release from ${location || response.status}`);
-  return syntheticRelease(decodeURIComponent(match[1]));
-}
-
-async function resolveRelease() {
-  if (process.env.XRAY_VERSION) return syntheticRelease(process.env.XRAY_VERSION);
-  const base = 'https://api.github.com/repos/XTLS/Xray-core/releases';
-  const headers = { Accept: 'application/vnd.github.v3+json' };
-  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  try {
-    const response = await getWithFallback(httpGet, `${base}/latest`, { headers, timeout: 60000 });
-    return response.data;
-  } catch (error) {
-    if (error.response?.status === 403 || error.response?.status === 429) {
-      console.warn('GitHub API unavailable (rate limit); using release redirect instead.');
-      return resolveFromRedirect();
-    }
-    throw error;
-  }
+function resolveRelease() {
+  return pinnedRelease(PLATFORM, ARCH, process.env.XRAY_VERSION || XRAY_VERSION);
 }
 
 async function downloadBuffer(url) {
@@ -78,7 +44,8 @@ function extractBinary(zipBuffer) {
 }
 
 async function main() {
-  const release = await resolveRelease();
+  const release = resolveRelease();
+  console.log(`Using xray ${release.tag_name}`);
   const asset = selectAsset(release, PLATFORM, ARCH);
 
   let zipUrl = process.env.XRAY_DOWNLOAD_URL || asset.browser_download_url;

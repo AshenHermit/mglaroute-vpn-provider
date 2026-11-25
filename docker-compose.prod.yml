@@ -26,14 +26,16 @@ services:
   redis:
     image: redis:7-alpine
     container_name: mglaroute-redis-prod
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     ports:
-      # Local development access to the production Redis. Redis has no password.
+      # Local development access to the production Redis. Password required.
       - "16379:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,6 +60,7 @@ services:
       DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-false}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       FRONTEND_URL: ${FRONTEND_URL:-https://admin.mglaroute.ashen-hermit.space}
     depends_on:

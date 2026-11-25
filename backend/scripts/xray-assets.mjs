@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+export const XRAY_VERSION = 'v26.11.9';
+
 const CANDIDATES = {
   win32: {
     x64: ['Xray-win7-64.zip', 'Xray-windows-64.zip'],
@@ -22,6 +24,17 @@ export function assetNamesFor(platform, arch) {
   const names = CANDIDATES[platform]?.[arch];
   if (!names) throw new Error(`Unsupported platform/arch: ${platform}/${arch}`);
   return [...names];
+}
+
+export function pinnedRelease(platform, arch, tag = XRAY_VERSION) {
+  const base = `https://github.com/XTLS/Xray-core/releases/download/${tag}`;
+  return {
+    tag_name: tag,
+    assets: assetNamesFor(platform, arch).map((name) => ({
+      name,
+      browser_download_url: `${base}/${name}`,
+    })),
+  };
 }
 
 export function selectAsset(release, platform, arch) {

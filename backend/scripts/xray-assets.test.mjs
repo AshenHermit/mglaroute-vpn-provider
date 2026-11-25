@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { assetNamesFor, selectAsset, parseSha256, verifySha256 } from './xray-assets.mjs';
+import * as assets from './xray-assets.mjs';
 
 const release = {
   assets: [
@@ -49,4 +50,22 @@ test('verifySha256 accepts the matching digest and rejects a wrong one', () => {
   const digest = createHash('sha256').update(data).digest('hex');
   assert.equal(verifySha256(data, digest), true);
   assert.equal(verifySha256(data, 'deadbeef'), false);
+});
+
+test('pinned xray version is fixed in code', () => {
+  assert.equal(assets.XRAY_VERSION, 'v26.11.9');
+  const release = assets.pinnedRelease('linux', 'x64');
+  assert.equal(release.tag_name, 'v26.11.9');
+  assert.equal(
+    release.assets[0].browser_download_url,
+    'https://github.com/XTLS/Xray-core/releases/download/v26.11.9/Xray-linux-64.zip',
+  );
+});
+
+test('pinnedRelease accepts an explicit tag override', () => {
+  const release = assets.pinnedRelease('win32', 'x64', 'v1.2.3');
+  assert.equal(
+    release.assets[0].browser_download_url,
+    'https://github.com/XTLS/Xray-core/releases/download/v1.2.3/Xray-win7-64.zip',
+  );
 });
