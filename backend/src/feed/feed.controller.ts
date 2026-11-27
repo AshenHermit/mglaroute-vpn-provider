@@ -11,6 +11,15 @@ import { FeedService } from './feed.service';
 export class FeedController {
   constructor(private readonly feedService: FeedService) {}
 
+  @Get('services')
+  @ApiOperation({
+    summary: 'Public enabled service names',
+    description: 'Curated id/name pairs for the desktop feed builder. No auth required.',
+  })
+  async getServices(@Res() res: Response): Promise<void> {
+    res.json(await this.feedService.listPublicServices());
+  }
+
   @Get()
   @ApiOperation({
     summary: 'Public VPN server feed',

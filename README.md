@@ -138,6 +138,7 @@ All endpoints use the `/api` prefix. JSON responses are wrapped as `{ ok, code?,
 | `POST` | `/api/auth/setup` | Public | Create first admin (once) |
 | `POST` | `/api/auth/login` | Public | Issue JWT |
 | `GET` | `/api/feed` | Public | Raw subscription links or JSON details |
+| `GET` | `/api/feed/services` | Public | Enabled service id/name pairs for the desktop feed builder |
 | `GET` | `/api/auth/me` | JWT | Current user |
 | `GET`, `POST` | `/api/subscriptions` | JWT | List / create subscriptions |
 | `GET`, `PUT`, `DELETE` | `/api/subscriptions/:id` | JWT | Read / update / delete subscription |
