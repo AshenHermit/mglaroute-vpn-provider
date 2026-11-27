@@ -47,12 +47,14 @@ function setup(profiles: Profile[], scores: any[] = [], settings: any = { anycas
   const profileRepository = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
   const anycastScoreRepository = { find: jest.fn().mockResolvedValue(scores) };
   const settingsRepository = { findOne: jest.fn().mockResolvedValue(settings) };
+  const onlineServicesService = { getEnabled: jest.fn().mockResolvedValue([] as any[]) };
   const service = new FeedService(
     profileRepository as any,
     anycastScoreRepository as any,
     settingsRepository as any,
+    onlineServicesService as any,
   );
-  return { service, qb, profileRepository, anycastScoreRepository, settingsRepository };
+  return { service, qb, profileRepository, anycastScoreRepository, settingsRepository, onlineServicesService };
 }
 
 describe('FeedService.generate — query construction', () => {
@@ -170,5 +172,22 @@ describe('FeedService.generate — json format', () => {
     expect(body.servers).toEqual([]);
     expect(body.count).toBe(0);
     expect(body.skipped).toBe(1);
+  });
+});
+
+describe('FeedService.listPublicServices', () => {
+  it('projects only id and name for enabled services', async () => {
+    const { service, onlineServicesService } = setup([]);
+    onlineServicesService.getEnabled.mockResolvedValue([
+      { id: 'svc-1', name: 'YouTube', testUrls: ['https://secret.example'], isEnabled: true, isDefault: true },
+    ]);
+    await expect(service.listPublicServices()).resolves.toEqual([
+      { id: 'svc-1', name: 'YouTube' },
+    ]);
+  });
+
+  it('returns an empty array when no services are enabled', async () => {
+    const { service } = setup([]);
+    await expect(service.listPublicServices()).resolves.toEqual([]);
   });
 });

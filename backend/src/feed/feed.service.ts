@@ -4,6 +4,7 @@ import { In, Repository } from 'typeorm';
 import { Profile } from '../profiles/profile.entity';
 import { AnycastScore } from '../scanner/anycast-scores.entity';
 import { ScannerSettings } from '../settings/settings.entity';
+import { OnlineServicesService } from '../online-services/online-services.service';
 import { applyServerFilters, applyServerSort } from '../query/server-filter';
 import { FeedQueryDto } from './dto/feed-query.dto';
 import { buildProfileLink } from './subscription-link.builder';
@@ -11,6 +12,11 @@ import { buildProfileLink } from './subscription-link.builder';
 export interface FeedResult {
   body: string;
   contentType: 'application/json' | 'text/plain; charset=utf-8';
+}
+
+export interface FeedServiceEntry {
+  id: string;
+  name: string;
 }
 
 function iso(value: Date | string | null | undefined): string | null {
@@ -26,7 +32,13 @@ export class FeedService {
     private readonly anycastScoreRepository: Repository<AnycastScore>,
     @InjectRepository(ScannerSettings)
     private readonly settingsRepository: Repository<ScannerSettings>,
+    private readonly onlineServicesService: OnlineServicesService,
   ) {}
+
+  async listPublicServices(): Promise<FeedServiceEntry[]> {
+    const rows = await this.onlineServicesService.getEnabled();
+    return rows.map(({ id, name }) => ({ id, name }));
+  }
 
   async generate(dto: FeedQueryDto): Promise<FeedResult> {
     const settings = await this.settingsRepository.findOne({ where: { id: 'singleton' } });
